@@ -1,6 +1,6 @@
 {
- "block.minenorthcasino.machine_a_sous": "Slot Machine",
- "block.minenorthcasino.table_roulette": "Roulette Table",
- "block.minenorthcasino.table_blackjack": "Blackjack Table",
+ "block.minenorthcasino.machine_a_sous": "Machine à sous",
+ "block.minenorthcasino.table_roulette": "Table de roulette",
+ "block.minenorthcasino.table_blackjack": "Table de blackjack",
  "itemGroup.minenorthcasino": "MineNorth Casino"
 }
