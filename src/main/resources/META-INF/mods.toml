@@ -1,0 +1,45 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="All Rights Reserved - MineNorthRP"
+
+[[mods]]
+modId="minenorthcasino"
+version="1.0.0"
+displayName="MineNorth Casino"
+authors="MineNorth RP"
+description='''Casino MineNorth RP : machine à sous, roulette et blackjack, reliés au compte d'une entreprise (config/minenorth_casino.json).'''
+
+[[dependencies.minenorthcasino]]
+modId="forge"
+mandatory=true
+versionRange="[47,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.minenorthcasino]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.21)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.minenorthcasino]]
+modId="minenorth_eurobank"
+mandatory=true
+versionRange="[1.0.0,2)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.minenorthcasino]]
+modId="minenorthentreprises"
+mandatory=true
+versionRange="[1.1.0,2)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.minenorthcasino]]
+modId="minenorthapi"
+mandatory=true
+versionRange="[1.1.0,2)"
+ordering="AFTER"
+side="BOTH"

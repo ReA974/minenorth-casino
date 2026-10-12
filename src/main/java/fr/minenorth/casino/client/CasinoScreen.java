@@ -1,0 +1,69 @@
+package fr.minenorth.casino.client;
+
+import fr.minenorth.casino.network.ModNetwork.OpenPacket;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+
+/** Base des écrans de jeu : cadre, ligne de statut et rangée de mises rapides. */
+public abstract class CasinoScreen extends Screen {
+    protected final OpenPacket info;
+    protected final int w, h;
+    protected int left, top;
+    protected String status = "";
+    protected boolean statusOk;
+    /** Mise sélectionnée (centimes). */
+    protected long chip;
+    private final String title;
+
+    protected CasinoScreen(OpenPacket info, String title, int w, int h) {
+        super(Component.literal(title));
+        this.info = info;
+        this.title = title;
+        this.w = w;
+        this.h = h;
+        this.chip = info.chips().isEmpty() ? info.min() : info.chips().get(0);
+    }
+
+    @Override public boolean isPauseScreen() { return false; }
+
+    /** Message du serveur (erreur ou information). */
+    public void message(boolean ok, String msg) { status = msg; statusOk = ok; }
+
+    @Override
+    protected void init() {
+        left = (width - w) / 2;
+        top = (height - h) / 2;
+    }
+
+    @Override
+    public void render(GuiGraphics g, int mx, int my, float pt) {
+        renderBackground(g);
+        CasinoStyle.panel(g, left, top, w, h, title, info.company());
+        super.render(g, mx, my, pt);
+    }
+
+    protected void drawStatus(GuiGraphics g, int y) {
+        if (!status.isBlank()) CasinoStyle.centered(g, status, left + w / 2, y, statusOk ? CasinoStyle.OK : CasinoStyle.ALERT);
+    }
+
+    /** Rangée de mises rapides ; la mise sélectionnée est entourée d'or. */
+    protected void chipRow(GuiGraphics g, int x, int y, int mx, int my) {
+        for (int i = 0; i < info.chips().size(); i++) {
+            long c = info.chips().get(i);
+            int cx = x + i * 46;
+            boolean sel = c == chip;
+            if (sel) g.fill(cx - 1, y - 1, cx + 43, y + 15, CasinoStyle.GOLD);
+            CasinoStyle.button(g, cx, y, 42, 14, CasinoStyle.euros(c), sel ? CasinoStyle.HOVER : CasinoStyle.DARK_BTN,
+                    mx >= cx && mx < cx + 42 && my >= y && my < y + 14, true);
+        }
+    }
+
+    protected boolean chipClick(int x, int y, double mx, double my) {
+        for (int i = 0; i < info.chips().size(); i++) {
+            int cx = x + i * 46;
+            if (mx >= cx && mx < cx + 42 && my >= y && my < y + 14) { chip = info.chips().get(i); return true; }
+        }
+        return false;
+    }
+}

@@ -1,0 +1,9 @@
+{
+ "parent": "minecraft:block/orientable",
+ "textures": {
+  "top": "minenorthcasino:block/slot_top",
+  "front": "minenorthcasino:block/slot_front",
+  "side": "minenorthcasino:block/slot_side",
+  "particle": "minenorthcasino:block/slot_side"
+ }
+}

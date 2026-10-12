@@ -1,0 +1,20 @@
+{
+ "variants": {
+  "facing=north": {
+   "model": "minenorthcasino:block/machine_a_sous",
+   "y": 0
+  },
+  "facing=east": {
+   "model": "minenorthcasino:block/machine_a_sous",
+   "y": 90
+  },
+  "facing=south": {
+   "model": "minenorthcasino:block/machine_a_sous",
+   "y": 180
+  },
+  "facing=west": {
+   "model": "minenorthcasino:block/machine_a_sous",
+   "y": 270
+  }
+ }
+}

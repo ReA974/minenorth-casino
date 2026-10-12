@@ -1,0 +1,20 @@
+{
+ "variants": {
+  "facing=north": {
+   "model": "minenorthcasino:block/table_roulette",
+   "y": 0
+  },
+  "facing=east": {
+   "model": "minenorthcasino:block/table_roulette",
+   "y": 90
+  },
+  "facing=south": {
+   "model": "minenorthcasino:block/table_roulette",
+   "y": 180
+  },
+  "facing=west": {
+   "model": "minenorthcasino:block/table_roulette",
+   "y": 270
+  }
+ }
+}
