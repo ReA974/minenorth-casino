@@ -162,6 +162,7 @@ IMPORTANT : retirer minenorth_portefeuille-1.0.0.jar du serveur s'il y a ete mis
 mods/minenorth-casino-1.0.0.jar -> REMPLACE (serveur ET clients, le protocole reseau a change : un client avec l ancien jar ne peut plus se connecter).
  * Machines a sous : 2 blocs de haut (couronne, levier), 3 styles : machine_a_sous (blanche et or), machine_a_sous_bleue, machine_a_sous_rouge.
  * Table de roulette : 3 x 2 blocs (roue a gauche, tapis a droite), se pose et se casse d un seul bloc.
+ * Table de blackjack : meme principe, 3 x 2 blocs (demi-lune, plateau de jetons, sabot).
  * Jetons : les jeux se jouent UNIQUEMENT avec des jetons (jeton_1, jeton_5, jeton_25, jeton_100, jeton_500 ; mises en euros entiers).
    Nouveau bloc caisse_casino : clic droit = ACHETER des jetons (paye par carte, l argent va sur le compte de l entreprise) ou RACHETER TOUS ses jetons
    (leur valeur est versee sur le compte du joueur ; refuse si la caisse de l entreprise est trop basse). Gains rendus en jetons.
@@ -179,3 +180,52 @@ mods/minenorth_harvest-1.20.1-1.0.0.jar remplace le precedent (serveur ET client
  * Four a minerai + Seau de coulee : minerai + combustible, soufflet a main nue, le metal coule dans le seau devant le bec, trempe a l'eau possible.
    Cles [foundry] : smeltTicks, coolTicks, bellowsBoostTicks, bellowsMaxTicks (turnsPerProduct ignoree).
  * Les cles absentes sont ajoutees toutes seules au demarrage dans config/minenorth_harvest-common.toml.
+
+
+--- Lot du 2026-10-13 : tablette du telephone, onglets Police / Pompiers, Etat, Entreprises, config ---
+mods/MRPhone 2 0.9.4 beta.jar -> telephone PATCHE : REMPLACE l'original (serveur ET clients). Noms RP partout + deux onglets "Police" / "Pompiers" en bas de
+   l'ecran d'accueil de l'application Urgences, visibles seulement pour un repondant en service ; ils ouvrent la tablette de repondant sans l'objet tablette.
+mods/minenorth-phone-1.0.0.jar -> la tablette de repondant n'est plus donnee a la prise de service (donnerTablette = false par defaut).
+   Config deplacee dans config/minenorthphone-server.toml (plus de remise a zero au reboot).
+mods/minenorth_admin, minenorth_shops, minenorth_printer -> leurs config serveur passent de <monde>/serverconfig/ a config/ (memes noms de fichiers :
+   minenorth_admin-server.toml, minenorth_shops-server.toml, minenorth_printer-server.toml). Valeurs par defaut au premier demarrage : recopier les anciennes si besoin.
+   Imprimante : les valeurs du serveur sont envoyees aux clients a la connexion (infobulles).
+mods/minenorth_admin-1.0.0.jar -> bouton "Entreprises" (menu admin des entreprises, permission "Entreprises : menu admin" a donner aux roles staff) et page "Impots"
+   dans l'onglet Etat (taux de l'impot sur le compte). Necessite minenorth-entreprises et minenorth-etat de ce lot.
+mods/minenorth-entreprises-1.0.0.jar -> API openAdmin pour le panneau ; un staff du panneau peut utiliser le menu admin sans etre op 2.
+mods/minenorth-etat-1.0.0.jar -> SERVEUR ET CLIENTS (la tablette change) :
+   * elections (ouvrir / cloturer / annuler) reservees au maire, plus aux agents ;
+   * onglet "Annonce" : le maire diffuse un titre a tous les joueurs (100 EUR du tresor, 15 min entre deux annonces) ;
+   * une loi promulguee prend le plus petit numero libre (abroger la n3 puis en creer une redonne la n3) ;
+   * impot sur le compte : toutes les 60 min, 1 % de ce qui depasse 1000 EUR sur le compte des joueurs connectes, notification dans le chat ;
+     le maire regle le taux (max 5 %) dans la tablette, l'admin sans plafond (panneau admin > Etat > Impots).
+   Nouvelles cles de config/minenorth_etat.json (ajoutees toutes seules) : annonce_cout_euros, annonce_delai_minutes, impot_compte_pourcent,
+   impot_compte_max_pourcent, impot_compte_franchise_euros, impot_compte_intervalle_minutes.
+SHA256SUMS.txt a jour.
+
+--- Lot du 13/10 : onglet commun, tout en francais, banque <-> entreprise ---
+mods/ : tous les mods MineNorth (sauf core, jamais distribue) recompiles, serveur ET clients. minenorth_api-1.0.0.jar est OBLIGATOIRE et a jour (onglet commun + liaison banque).
+ * Onglet creatif unique "MineNorth" (fourni par minenorth_api) : les objets de tous les mods y sont ranges. Les anciens onglets par mod n'existent plus.
+ * Tous les textes en francais, meme avec un client en anglais (en_us = fr_fr).
+ * Banque <-> entreprise : /entreprisebanque <nom de l'entreprise> relie le capital de la banque (argent des prets) au compte de CETTE entreprise.
+   Le capital interne actuel est verse sur le compte a la liaison ; ensuite prets accordes / remboursements passent par ce compte (visibles dans son historique).
+   /entreprisebanque (seul) affiche le lien, /entreprisebanque aucune le supprime (le capital repart de zero). Dissoudre l'entreprise coupe le lien.
+ * minenorth_portefeuille n'existe plus : le portefeuille est dans minenorth-etat (minenorthetat:wallet). RETIRER l'ancien jar du serveur.
+ * Mods tiers : ne pas les redeposer s'ils sont deja sur le serveur (non inclus dans ce lot).
+
+--- Mods tiers remis dans mods/ (13/10) : BeyondHorizons IV, Immersive Vehicles, Kaminari Motor Work, MRPhone 2, MTS Official Pack, New-Cars-Pack, Belroft Motors Mk 10, roads-n-vehicles (Fabric : Sinytra Connector requis, non inclus). ---
+
+--- Vetements en relief (13/10) : mods/minenorth_vetements-1.0.0.jar remplace l'ancien (CLIENTS surtout) : capuches, cols, poches, ourlets, bonnets a pompon, casquettes a visiere, pantalons amples a revers, ceinture, semelles epaisses (cubes 3D par-dessus l'armure). Rendu non teste en jeu : signaler tout decalage. ---
+
+--- Menu admin des entreprises : soldes modifiables + lien banque/entreprise par config (2026-10-13) ---
+mods/minenorth_api-1.0.0.jar, minenorth_eurobank-1.0.0.jar, minenorth-entreprises-1.0.0.jar, minenorth_admin-1.0.0.jar -> REMPLACENT les anciens, LES QUATRE ENSEMBLE
+(serveur ET clients : le protocole reseau du mod Entreprises est passe a 6).
+ * Menu admin des entreprises (/entrepriseadmin ou panneau MineNorth Admin), onglet TRANSACTIONS : champ Montant + boutons Ajouter / Retirer / Definir pour ajuster le solde
+   du compte de l entreprise. Chaque ajustement est dans l historique du compte (« Ajustement par l administration » + nom de l admin) et dans les logs du serveur.
+   Cet ajustement cree / detruit de l argent (il ne passe pas par le tresor de l Etat). Droit : OP 2+, ou staff avec le droit « modifier la banque » du panneau.
+ * Bouton « Capital de la banque » dans le meme onglet : relie / delie le capital des prets (EuroBank) a cette entreprise (comme /entreprisebanque <nom>).
+ * Nouveau dans config/minenorth_entreprises.json (ajoute tout seul au demarrage) : "entreprise_banque" (nom exact) et "entreprise_banque_id" (numero, prioritaire si >= 0).
+   Applique au demarrage et a /entreprisereload ; vide = on ne touche pas au lien existant. Si rempli, la config l emporte sur la commande a chaque redemarrage.
+   Le lien fait par commande est, lui, conserve dans les donnees du monde (il survit aux redemarrages).
+SHA256SUMS.txt a jour. Redemarrer le serveur apres remplacement.
+--- Scierie agrandie (13/10) : mods/minenorth_harvest-1.20.1-1.0.0.jar remplace le precedent (serveur ET clients). La scierie est maintenant un multibloc 2 de large x 3 de long x 2 de haut (place necessaire pour la poser ; la casser retire tout). Les anciennes scieries 1x1 deja posees doivent etre recassees et reposees. ---
