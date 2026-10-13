@@ -29,7 +29,7 @@ import java.util.function.Supplier;
 public final class ModNetwork {
     private ModNetwork() {}
 
-    private static final String PROTOCOL = "2";
+    private static final String PROTOCOL = "3";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(MineNorthCasino.MOD_ID, "network"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
     private static int id = 0;
@@ -47,6 +47,7 @@ public final class ModNetwork {
         CHANNEL.registerMessage(id++, BjActionPacket.class, BjActionPacket::encode, BjActionPacket::decode, BjActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(id++, BjStatePacket.class, BjStatePacket::encode, BjStatePacket::decode, BjStatePacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(id++, ChipsPacket.class, ChipsPacket::encode, ChipsPacket::decode, ChipsPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(id++, HistoryPacket.class, HistoryPacket::encode, HistoryPacket::decode, HistoryPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(id++, CashierActionPacket.class, CashierActionPacket::encode, CashierActionPacket::decode, CashierActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
 
@@ -138,6 +139,13 @@ public final class ModNetwork {
             return new BjStatePacket(phase, bet, pl, de, b.readVarInt(), b.readUtf(120), b.readVarLong(), b.readBoolean());
         }
         static void handle(BjStatePacket p, Supplier<NetworkEvent.Context> c) { toClient(c, () -> ClientHandler.bjState(p)); }
+    }
+
+    /** Derniers numéros de la roulette, le plus récent en premier (statistiques affichées sur l'écran de la roulette). */
+    public record HistoryPacket(List<Integer> draws) {
+        static void encode(HistoryPacket p, FriendlyByteBuf b) { b.writeVarInt(p.draws.size()); for (int i : p.draws) b.writeVarInt(i); }
+        static HistoryPacket decode(FriendlyByteBuf b) { return new HistoryPacket(readList(b, FriendlyByteBuf::readVarInt, 128)); }
+        static void handle(HistoryPacket p, Supplier<NetworkEvent.Context> c) { toClient(c, () -> ClientHandler.history(p.draws)); }
     }
 
     /** Valeur (centimes) des jetons que le joueur porte, affichée dans l'écran ouvert. */

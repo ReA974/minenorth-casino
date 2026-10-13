@@ -229,3 +229,31 @@ mods/minenorth_api-1.0.0.jar, minenorth_eurobank-1.0.0.jar, minenorth-entreprise
    Le lien fait par commande est, lui, conserve dans les donnees du monde (il survit aux redemarrages).
 SHA256SUMS.txt a jour. Redemarrer le serveur apres remplacement.
 --- Scierie agrandie (13/10) : mods/minenorth_harvest-1.20.1-1.0.0.jar remplace le precedent (serveur ET clients). La scierie est maintenant un multibloc 2 de large x 3 de long x 2 de haut (place necessaire pour la poser ; la casser retire tout). Les anciennes scieries 1x1 deja posees doivent etre recassees et reposees. ---
+
+--- Four a minerai agrandi (13/10) : mods/minenorth_harvest-1.20.1-1.0.0.jar remplace le precedent (serveur ET clients). Le four est un multibloc 2 de large x 2 de profondeur x 2 de haut (place necessaire ; le casser retire tout). Anciens fours 1x1 : a recasser et reposer. Seau de coulee : a poser devant le bec (avant de la tour). ---
+
+--- Mise a jour du 13/10 : Recolte, Entreprises, Alcool ---
+mods/minenorth_harvest-1.20.1-1.0.0.jar -> REMPLACE le precedent (serveur ET clients).
+ * Scierie et four : modeles sans trous (UV explicites sur toutes les faces).
+ * Four a minerai : accepte aussi les minerais en bloc (iron_ore, copper_ore, gold_ore + deepslate), SANS combustible par defaut
+   (config [foundry] needsFuel = false ; true pour l'exiger). Le nouveau reglage s'ajoute tout seul a la config au demarrage.
+ * Abattage : la souche est posee sur tout sol plein, avec filet de securite (bucheron abattue la plus basse) ; si aucune souche n'est posee,
+   une ligne "Abattage en ... : aucune souche posee" est ecrite dans le log serveur.
+mods/minenorth-entreprises-1.0.0.jar -> REMPLACE le precedent (serveur ET clients, protocole reseau 5). Distributeur automatique
+   (bloc "distributeur", onglet creatif commun MineNorth) : clic droit = acheter par carte (l'argent va sur le compte de l'entreprise),
+   Maj + clic droit (patron / gerant) = stock et prix. Pose reservee au patron / gerants d'une entreprise active.
+mods/kaleidoscope_world_liquor-1.1.12-forge+mc1.20.1-fix-all-minenorth.jar -> REMPLACE le jar kaleidoscope_world_liquor-...-fix-all.jar
+   (supprimer l'ancien de mods/ : ne jamais garder les deux). Serveur ET clients, necessite GeckoLib 4.7. Animation de boisson GeckoLib
+   (Spirytus et Smirnoff : 6,35 s, bras du joueur, sons secouer / ouvrir / boire) et correction de l'erreur mixin "SMCMixinConfigPlugin".
+   Licence du mod d'origine : CC BY-NC-ND 4.0, ne pas redistribuer la version modifiee hors du serveur.
+SHA256SUMS.txt a jour. Redemarrer le serveur apres remplacement.
+
+--- Vetements realistes (13/10) : mods/minenorth_vetements-1.0.0.jar remplace le precedent (CLIENTS surtout). Textures d armure en HAUTE RESOLUTION (512x256) : tissus, coutures, cols, poches, fermetures, logos vectoriels ; relief 3D ; casquettes a visiere courbe (plus de bonnets, ils tombaient devant les yeux). Rendu non teste en jeu. ---
+
+--- Casino : roulette animee + sons, derniers tirages, caisse a montant libre, textes corriges (2026-10-13) ---
+mods/minenorth-casino-1.0.0.jar -> REMPLACE (serveur ET clients, protocole reseau du casino passe a 3).
+ * Roulette : roue et bille animees dans l ecran, sons (cliquetis, victoire / perte), panneau « Tirages » avec les derniers numeros sortis (100 gardes avec le monde).
+ * Caisse : montant d achat libre (champ a saisir) en plus des raccourcis ; limites dans config/minenorth_casino.json, section "caisse".
+ * Machines a sous : loupiotes lumineuses (la partie haute eclaire un peu la salle). Blackjack : table 3 x 2 blocs.
+ * Ecrans roulette / blackjack / caisse : textes qui se chevauchaient en GUI x3 corriges (ecrans un peu plus hauts).
+SHA256SUMS.txt a jour. Redemarrer le serveur apres remplacement.

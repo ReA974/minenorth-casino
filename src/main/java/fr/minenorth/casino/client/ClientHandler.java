@@ -17,6 +17,10 @@ public final class ClientHandler {
         }
     }
 
+    public static void history(java.util.List<Integer> draws) {
+        if (Minecraft.getInstance().screen instanceof RouletteScreen s) s.history(draws);
+    }
+
     public static void held(long cents) {
         if (Minecraft.getInstance().screen instanceof CasinoScreen s) s.held(cents);
     }

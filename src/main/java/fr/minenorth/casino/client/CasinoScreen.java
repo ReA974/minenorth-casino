@@ -52,8 +52,19 @@ public abstract class CasinoScreen extends Screen {
         super.render(g, mx, my, pt);
     }
 
+    /** Message de statut centré ; un message trop long passe sur deux lignes au lieu de dépasser du cadre. */
     protected void drawStatus(GuiGraphics g, int y) {
-        if (!status.isBlank()) CasinoStyle.centered(g, status, left + w / 2, y, statusOk ? CasinoStyle.OK : CasinoStyle.ALERT);
+        if (status.isBlank()) return;
+        var lines = font.split(Component.literal(status), w - 24);
+        for (int i = 0; i < Math.min(2, lines.size()); i++) {
+            var l = lines.get(i);
+            g.drawString(font, l, left + w / 2 - font.width(l) / 2, y + i * 10, statusOk ? CasinoStyle.OK : CasinoStyle.ALERT, false);
+        }
+    }
+
+    /** Texte raccourci (avec …) s'il dépasse {@code maxWidth}. */
+    protected String fit(String s, int maxWidth) {
+        return font.width(s) <= maxWidth ? s : font.plainSubstrByWidth(s, maxWidth - font.width("…")) + "…";
     }
 
     /** Rangée de mises rapides ; la mise sélectionnée est entourée d'or. */

@@ -85,6 +85,7 @@ public final class CasinoService {
         SESSIONS.put(sp.getUUID(), new Session(game, sp.level().dimension(), pos.immutable()));
         ModNetwork.send(sp, pk);
         sendHeld(sp);
+        if (game == Game.ROULETTE) ModNetwork.send(sp, new ModNetwork.HistoryPacket(CasinoStats.get(sp.server).recentDraws()));
         BlackjackGame g = HANDS.get(sp.getUUID());
         if (game == Game.BLACKJACK && g != null) sendBj(sp, g, "Main en cours.");
     }
@@ -233,8 +234,17 @@ public final class CasinoService {
             paid = 0;
             reply(sp, false, "Gain non versé : prévenez un responsable du casino.");
         }
-        CasinoStats.get(sp.server).add("roulette", total, paid);
+        CasinoStats stats = CasinoStats.get(sp.server);
+        stats.add("roulette", total, paid);
+        stats.addDraw(n);
         ModNetwork.send(sp, new ModNetwork.RouletteResultPacket(n, total, paid));
+        // Tous ceux qui ont une table de roulette ouverte voient l'historique à jour (le joueur qui vient de tirer l'affiche après son animation).
+        ModNetwork.HistoryPacket hist = new ModNetwork.HistoryPacket(stats.recentDraws());
+        for (Map.Entry<UUID, Session> e : SESSIONS.entrySet()) {
+            if (e.getValue().game() != Game.ROULETTE) continue;
+            ServerPlayer other = sp.server.getPlayerList().getPlayer(e.getKey());
+            if (other != null) ModNetwork.send(other, hist);
+        }
     }
 
     // ------------------------------------------------------------------ blackjack

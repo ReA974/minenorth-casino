@@ -22,7 +22,7 @@ public class BlackjackScreen extends CasinoScreen {
     private boolean waiting;
     private CasinoButton deal, hit, stand, dbl;
 
-    public BlackjackScreen(OpenPacket info) { super(info, "Blackjack", 300, 282); }
+    public BlackjackScreen(OpenPacket info) { super(info, "Blackjack", 300, 296); }
 
     @Override
     protected void init() {
@@ -81,12 +81,14 @@ public class BlackjackScreen extends CasinoScreen {
         if (phase == 2 && payout > 0) g.drawString(font, "Gain : " + CasinoStyle.euros(payout), left + w - 100, top + 62, CasinoStyle.OK, false);
         drawStatus(g, top + 174);
         if (!playing) {
+            int tw = w - 24;
+            // Quatre lignes d'infos puis la rangée de jetons : chacune à sa place (elles se chevauchaient en GUI x3).
+            g.drawString(font, fit("Mises : " + CasinoStyle.euros(info.min()) + " à " + CasinoStyle.euros(info.max()), tw), left + 12, top + 186, CasinoStyle.MUTED, false);
+            g.drawString(font, fit("Blackjack paie " + fmt(info.bjGain() + 1) + " pour 1", tw), left + 12, top + 197, CasinoStyle.MUTED, false);
+            g.drawString(font, fit("Croupier " + (info.soft17() ? "tire" : "reste") + " sur 17 soft", tw), left + 12, top + 208, CasinoStyle.MUTED, false);
+            g.drawString(font, fit("Doublage sur les 2 premières cartes", tw), left + 12, top + 219, CasinoStyle.MUTED, false);
             g.drawString(font, "Jeton", left + 12, top + h - 66, CasinoStyle.MUTED, false);
             chipRow(g, left + 12, top + h - 52, mx, my);
-            g.drawString(font, CasinoStyle.euros(info.min()) + " à " + CasinoStyle.euros(info.max()), left + 12, top + 188, CasinoStyle.MUTED, false);
-            g.drawString(font, "Blackjack paie " + fmt(info.bjGain() + 1) + " pour 1 - Croupier " + (info.soft17() ? "tire" : "reste") + " sur 17 soft",
-                    left + 12, top + 200, CasinoStyle.MUTED, false);
-            g.drawString(font, "Doublage sur les 2 premières cartes", left + 12, top + 212, CasinoStyle.MUTED, false);
         }
     }
 
