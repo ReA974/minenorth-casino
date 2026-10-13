@@ -4,6 +4,7 @@
   "front_t": "minenorthcasino:block/slot_rouge_front_t",
   "front_b": "minenorthcasino:block/slot_rouge_front_b",
   "crown": "minenorthcasino:block/slot_rouge_crown",
+  "bulb": "minenorthcasino:block/slot_bulb",
   "dark": "minenorthcasino:block/slot_lever_dark",
   "red": "minenorthcasino:block/slot_lever_red",
   "particle": "minenorthcasino:block/slot_rouge_side"

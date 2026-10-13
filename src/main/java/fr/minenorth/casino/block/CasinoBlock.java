@@ -52,7 +52,9 @@ public class CasinoBlock extends Block {
     public CasinoBlock(Game game) {
         // Résistance énorme : une explosion ne doit pas laisser une table à moitié détruite.
         super(BlockBehaviour.Properties.of().strength(3.0f, 3600000.0f).sound(game == Game.ROULETTE || game == Game.BLACKJACK ? SoundType.WOOD : SoundType.METAL)
-                .noOcclusion().pushReaction(PushReaction.BLOCK));
+                .noOcclusion().pushReaction(PushReaction.BLOCK)
+                // Les loupiotes de la machine à sous éclairent un peu la salle (le morceau du haut seulement).
+                .lightLevel(s -> game == Game.SLOT && s.getValue(PART) == 1 ? 8 : 0));
         this.game = game;
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(PART, 0));
     }
