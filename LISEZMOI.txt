@@ -1,0 +1,181 @@
+MineNorthRP - paquet serveur (09/10/2026)
+
+mods/ : tous les mods MineNorth à déposer dans le dossier mods du serveur (et des clients quand ils ajoutent des items).
+Mise à jour de cette version : minenorth_rp_vehicles-1.0.0.jar (garage) - onglet créatif « Garage » : tablette garage,
+tablette concessionnaire, bâton de zone, kit de dépannage. Textes en français.
+
+Le kit de dépannage cherche l'asphalte du mod Roads 'n' Vehicles (mod Fabric, nécessite Sinytra Connector) : ce mod doit
+déjà être présent sur le serveur (jar non inclus ici).
+La section [depannage] s'ajoute toute seule à config/minenorth-garage.toml au prochain démarrage.
+Vérifier les jars avec SHA256SUMS.txt. Redémarrer le serveur après remplacement.
+
+
+--- Depanneuse Harpy corrigee (2026-10-09) ---
+mods/MineNorth_Urgences_Pack-1.0.0.jar -> REMPLACE l'ancien (serveur ET clients) : la depanneuse sort maintenant avec ses roues (gvp:commonbudwheel)
+et peut charger une voiture (point d'attache tow_flatbed, collisions du plateau et de la rampe, comme la remorque porte-voitures Belroft :
+reculer la depanneuse devant la voiture, CONDUIRE la voiture sur la rampe jusqu'au plateau pour qu'elle s'attache).
+Si une depanneuse deja posee est restee sans roues : la faire passer par le garage / en acheter une nouvelle (les anciennes gardent leur ancienne fiche).
+
+
+--- Carte : categorie "garage" + boutiques : protection contre le retour a zero (2026-10-09) ---
+mods/minenorth_map-1.0.0.jar    -> serveur ET clients : nouveau type de point "Garage" (couleur 607D8B), ajoute tout seul a la liste meme si config/minenorth_map-server.toml
+                                   est deja ecrit. Pour la couleur / le libelle, ajouter dans types = [...] : "garage;Garage;607D8B" (avant "autre").
+                                   Commande pour passer tous les points d'un coup : /carte point typegroupe Garage_ garage
+mods/minenorth_shops-1.1.0.jar  -> serveur ET clients : shops.json porte maintenant une "revision". Si le fichier est plus ancien que les boutiques du monde
+                                   (modele de config redeploye, hebergeur qui restaure config/, vieille sauvegarde...), il n'ecrase plus rien : il est copie dans
+                                   config/minenorth_shops/shops.json.stale-<date> (5 dernieres gardees) et le monde est reecrit dans shops.json.
+                                   Premiere fois apres la mise a jour : faire une modification de boutique en jeu pour que la protection s'active.
+
+
+--- Carte : config deplacee dans config/ + types Recolte / Traitement / Garage (2026-10-09, remplace la note carte ci-dessus) ---
+mods/minenorth_map-1.0.0.jar -> serveur ET clients.
+ * La config du serveur de la carte etait de type SERVER : fichier <monde>/serverconfig/minenorth_map-server.toml (dans le dossier du monde),
+   qui revenait a zero. Elle est maintenant dans config/minenorth_map-server.toml (meme nom, memes sections).
+   A faire UNE FOIS : copier l'ancien fichier du monde vers config/ AVANT le premier demarrage avec ce jar (sinon valeurs par defaut), puis ne plus toucher
+   a <monde>/serverconfig/minenorth_map-server.toml (il est ignore).
+ * Types de points ajoutes tout seuls (avant "autre") tant que ta liste types = [...] ne les definit pas :
+   recolte (Recolte, 9CCC65), traitement (Traitement, 26A69A), garage (Garage, 607D8B). Pour changer couleur / libelle, les ajouter dans types.
+ * Changer les points existants d'un coup : /carte point typegroupe Garage_ garage ; /carte point typegroupe Champs_ recolte ;
+   /carte point typegroupe Zone_ recolte ; /carte point typegroupe Traitement_ traitement ; (puis a l'unite : /carte point type <nom> <type>).
+
+
+--- Lot complet reconstruit (2026-10-09, 23h) ---
+mods/ contient maintenant TOUS les jars MineNorth modifies, recompiles depuis les depots : api, police, secours, accueil, rp_vehicles (garage), shops, portes,
+entreprises, etat, eurobank, identite, printer, admin, permis, map + MineNorth_Urgences_Pack. Tout remplace les anciens (serveur ET clients). SHA256SUMS.txt a jour.
+Nouveautes de ce lot : fichiers de langue en_us (plusieurs mods), kit de depannage renomme "cric" dans les messages, carte (config deplacee dans config/ + types
+Recolte / Traitement / Garage + /carte point typegroupe), boutiques (protection shops.json), depanneuse (rampe par clic sur le coin arriere du plateau).
+minenorth_vehicles/ : catalog.json et shops.json a jour (bateaux police / pompiers, depannage). Copier dans config/minenorth_vehicles/ du serveur.
+
+
+--- Pompes a carburant MTS (2026-10-10) ---
+mods/minenorth_rp_vehicles-1.0.0.jar -> REMPLACE l'ancien (serveur ET clients : le clic droit est annule aussi cote client).
+Clic droit sur une pompe MTS (decor "fuel_pump" du pack officiel) : l'ecran natif de MTS est annule et un menu s'ouvre :
+ * FAIRE LE PLEIN : remplit le vehicule (le plus proche de la pompe, ou celui ou tu es assis) avec le carburant de la pompe, payant au litre
+   (especes ou carte, l'argent va au tresor). C'est la logique native de MTS : reservoir du vehicule rempli avec le fluide de la pompe, reservoir de la pompe vide d'autant.
+ * REMPLIR LA POMPE : tu verses de l'essence raffinee du mod Recolte (minenorth_harvest:gasoline) ; chaque item ajoute des litres au reservoir natif de la pompe
+   et le tresor te paie un prix d'achat.
+ * OP + accroupi (shift) : pompe native de MTS (reglages, bidons...).
+Nouvelle section [pompe] dans config/minenorth-garage.toml (ajoutee toute seule au demarrage) :
+   pricePerLiter    PRIX DE VENTE au conducteur, en euros par litre (defaut 3.0)
+   pricePerItem     PRIX D'ACHAT de l'essence au joueur qui remplit la pompe, en euros par item (defaut 4.0)
+   litersPerItem    litres apportes par 1 essence raffinee (defaut 2.0)
+   mbPerLiter       mB MTS par "litre" (defaut 1000 = 1 seau, comme l'affichage LVL:..b de la pompe)
+   vehicleRadius    rayon de recherche du vehicule autour de la pompe (defaut 8)
+   fillItem / fluid item verse (minenorth_harvest:gasoline) et fluide MTS d'une pompe vide ("gasoline")
+Prevoir : un compte bancaire pour etre paye en remplissant la pompe ; le tresor doit avoir des fonds pour payer l'essence achetee.
+
+
+--- Bornes de recharge EV toujours pleines (2026-10-10) ---
+mods/minenorth_rp_vehicles-1.0.0.jar -> REMPLACE (meme jar que les pompes, version plus recente).
+Les bornes de recharge MTS (decor "charger", ex. gvp ev_charger) etaient vides 24h/24 : leur stock d'energie n'est alimente que par du courant Forge Energy.
+Maintenant, toutes les secondes, les bornes situees autour de chaque joueur (5x5 chunks) recoivent un stock plein et un plafond d'achat illimite : elles chargent sans arret.
+Reglage : [pompe] chargersAlwaysFull = true dans config/minenorth-garage.toml (false = comportement MTS normal).
+Note : la charge est gratuite (comme une pompe creative). Pour la faire payer comme les pompes, il faudra ajouter un menu de paiement (non fait).
+
+
+--- Secours : "bouton reapparition" seulement sans secours en service (2026-10-10) ---
+mods/minenorth-secours-1.0.0.jar -> REMPLACE (serveur ET clients : protocole reseau 3 -> 4, un client avec l'ancienne version ne peut plus se connecter).
+ * Des secouristes / pompiers sont EN SERVICE : l'inconscient est invulnerable (il ne peut plus mourir, donc plus d'ecran de mort ni de bouton "Reapparaitre") ;
+   il attend les secours ou la fin du delai de coma. L'ecran affiche "Un pompier ou le SAMU doit venir vous reanimer".
+ * AUCUN secouriste en service : l'ecran affiche "Aucun secours en service. Appuyez sur [R] pour vous reveiller a l'hopital" (touche reglable dans les controles,
+   categorie "Secours MineNorth"), et le coma redevient mortel (mort + "Reapparaitre" comme avant).
+ * Le serveur reverifie : la touche ne marche que s'il n'y a vraiment aucun secouriste en service. L'ecran se met a jour quand un secouriste prend ou quitte son service.
+ Reglage : config/minenorth_secours.json -> coma_mortel_sans_secours_seulement (true par defaut ; false = ancien comportement, coma mortel meme avec des secours).
+
+
+--- Garage + plaques (2026-10-10) ---
+mods/minenorth_rp_vehicles-1.0.0.jar -> REMPLACE le garage (serveur ET clients).
+   Nouveau : vehicule detruit SANS assurance (avec sa plaque d'origine posee) -> plaque radiee du registre des immatriculations
+   (config garage : supprimerSiDetruit = false pour la garder marquee "detruit" a la place). Assure : rien ne change.
+mods/New-Cars-Pack-Mod-Forge-1.20.1.jar (195 Mo) -> REMPLACE le pack New Cars (serveur ET clients).
+   Corrige l'emplacement des plaques : les plaques gvp.eu_plate etaient enfoncees dans la carrosserie (invisibles). A tester en jeu.
+
+
+--- Lot de test complet (2026-10-10, soir) ---
+mods/ contient TOUS les jars a jour (derniers builds) : tous les mods MineNorth (api, core, eurobank, identite, police, secours, accueil, portes, entreprises, etat,
+admin, permis, printer, vetements, harvest, map, shops, rp_vehicles/garage) + MineNorth_Urgences_Pack + New-Cars-Pack + MikasRevs Phone 2 0.9.4 beta + minenorth-phone (NOUVEAU).
+Tout remplace les anciens (serveur ET clients), SAUF minenorth-phone-1.0.0.jar : serveur uniquement. SHA256SUMS.txt a jour.
+NON inclus (deja sur le serveur) : Kaminari Motor Work (gvp), Belroft Motors, Roads 'n' Vehicles + Sinytra Connector, Immersive Vehicles (MTS), MTS Official Pack, Simple Voice Chat.
+NB : le dossier minenorth_vehicles/ (catalog.json, shops.json) cite plus haut n'est plus dans push serveur : copier ceux du serveur ou me redemander.
+
+NOUVEAU a tester en premier :
+ * minenorth-phone (pont telephone) : au demarrage le log doit dire "MikasRevs Phone 2 detecte : pont police / secours actif" et
+   "Banque du telephone branchee sur MineNorth EuroBank". App Banque du telephone = compte EuroBank (solde, virements entre joueurs).
+   Les policiers / secouristes EN SERVICE deviennent repondants du telephone (roles automatiques) et sont alertes (chat + carte) des appels d'urgence.
+   Config : minenorthphone-server.toml (actif, rolesAutomatiques, donnerTablette, alerteChat, alerteCarte, brancherEuroBank).
+ * Boutiques : listes deroulantes (licence / acces / statut), boutique pompiers, boutique illegale (2 entites en alternance ; config [illegal] dans minenorth_shops-server.toml,
+   commandes /shops illegal <id> on|off|statut|basculer, /shops pompier <id> on|off).
+ * Plaques : une voiture detruite non assuree retire sa plaque ; le log ecrit une ligne "[Plaques] ..." a chaque destruction (envoyer cette ligne si ca ne marche pas).
+ * Memoire : user_jvm_args.txt (racine de minenorthrp) = -Xms4G -Xmx12G + G1 ; verifier ensuite avec /spark heapsummary.
+
+--- Alertes d'appel d'urgence dans les tablettes (2026-10-10, soir) ---
+mods/minenorth_api-1.0.0.jar, minenorth-phone-1.0.0.jar, minenorth-police-1.0.0.jar, minenorth-secours-1.0.0.jar -> REMPLACENT les anciens.
+serveur ET clients pour api, police, secours (protocoles reseau : police 6 -> 7, secours 4 -> 5) ; minenorth-phone = serveur seulement. Mettre les 4 ensemble.
+ * Tablette POLICE : nouvel onglet ALERTES (appels d'urgence 17 passes depuis le telephone) : categorie, appelant, lieu, distance, anciennete, description, bouton GUIDER (repere + guidage carte).
+ * Tablette SECOURS : les appels d'urgence 18 s'ajoutent a l'onglet ALERTES (bouton GUIDER). Les deux listes se rechargent toutes les 5 s.
+ * Les appels viennent du pont minenorth-phone (MikasRevs Phone 2) via MineNorth.calls() de l'API.
+
+--- Pompes limitees / illimitees (2026-10-11) ---
+mods/minenorth_rp_vehicles-1.0.0.jar -> REMPLACE le garage (serveur ET clients).
+ * /pompe limiter | illimitee | statut (OP) sur la pompe MTS visee (moins de 6 blocs). MTS considere une pompe comme illimitee tant que son inventaire de carburant est vide :
+   "limiter" y pose un objet repere (barriere "Pompe limitee (MineNorth)") -> la pompe se vide a chaque plein et se remplit avec l'essence raffinee (clic droit > Remplir).
+   "illimitee" retire le repere. Le repere n'est visible que dans l'ecran natif MTS (OP + accroupi).
+
+--- Capacite des pompes (2026-10-11) ---
+mods/minenorth_rp_vehicles-1.0.0.jar -> REMPLACE (meme jar que /pompe). Nouveau reglage [pompe] capacityLiters dans config/minenorth-garage.toml (defaut 10000 L ; MTS donne 35 L).
+Applique a chaque utilisation de la pompe (menu, plein, /pompe statut), seulement vers le haut ; 0 = capacite d'origine de MTS.
+
+--- Pompes : remplissage corrige (2026-10-11) ---
+mods/minenorth_rp_vehicles-1.0.0.jar -> REMPLACE (meme jar). Cause du refus "La pompe est pleine" : le reservoir d'une pompe limitee (classe anonyme de MTS) ne se remplit que
+jusqu'a fuelPurchased - fuelDispensed - niveau, donc 0 sans achat natif MTS. Le mod met maintenant ce plafond tres haut (le paiement se fait par le menu MineNorth).
+Nouveau reglage [pompe] fluidMod (defaut minenorth_harvest) = origine du fluide "gasoline" d'une pompe vide remplie.
+
+
+--- Lot complet + Recolte : scierie, mine, fonderie (2026-10-12) ---
+mods/ contient TOUS les jars (20 mods MineNorth + MineNorth_Urgences_Pack), recompiles le 12/10 : api, core, police, secours, accueil, rp_vehicles (garage),
+shops, portes, entreprises, etat, eurobank, identite, printer, admin, permis, map, harvest, phone, vetements, portefeuille. Tout remplace les anciens (serveur ET clients).
+minenorth_harvest-1.20.1-1.0.0.jar (CLIENT AUSSI : nouveaux blocs) :
+ * Bucheron : correctif (le clic droit maintenu au depart annulait le mini-jeu) + drops regroupes (moins de lag a la chute).
+ * Scierie (bûche -> 6 planches), Fonderie (2 minerai brut -> 3 lingots), zone "mine" (/recolte zone creer <nom> mine) : minerais qui repoussent.
+ * "Coup de chance" : production doublee (15 % scierie, 10 % fonderie).
+ * Sections [sawmill], [foundry], [mine] ajoutees toutes seules a config/minenorth_harvest-common.toml au demarrage : ne PAS ecraser ta config existante.
+config/minenorth_harvest-chasse.json : recompenses de chasse par defaut (a copier seulement si absent du serveur).
+Verifier les jars avec SHA256SUMS.txt. Redemarrer le serveur apres remplacement.
+
+--- Abattage plus court (2026-10-12) ---
+mods/minenorth_harvest-1.20.1-1.0.0.jar remplace le precedent. Nouveaux defauts : baseHits=1, logsPerExtraHit=16, maxHits=4, extraHits=1.
+ATTENTION : une config existante garde ses anciennes valeurs. Dans config/minenorth_harvest-common.toml, section [lumberjack], mettre ces valeurs a la main
+(ou supprimer le fichier pour le regenerer).
+
+--- Mods tiers ajoutes (2026-10-12) ---
+mods/ contient aussi les mods tiers du dossier minenorthrp : BeyondHorizons IV, Immersive Vehicles, Kaminari Motor Work, MRPhone 2 (seule version presente : "beta", le jar "patche" n existe plus dans le dossier),
+MTS Official Pack, New-Cars-Pack, Belroft Motors Mk 10, roads-n-vehicles (Fabric : necessite Sinytra Connector, a installer aussi sur le serveur, non inclus).
+
+--- Lot du 12/10 : seulement les mods crees / modifies aujourd'hui (mis a jour 18h50) ---
+mods/ : casino (NOUVEAU), etat (integre maintenant le portefeuille : objet minenorthetat:wallet, l'ancien mod minenorth_portefeuille est SUPPRIME du serveur),
+entreprises (distributeurs), rp_vehicles/garage (pompes), phone, printer, shops, admin, harvest (scierie, mine, fonderie, abattage court).
+Noms en francais meme avec un client en anglais (en_us = francais). Tout remplace les anciens (serveur ET clients).
+_autres_mods_non_modifies/ : les autres jars (mods MineNorth non touches aujourd'hui + mods tiers), a ne pas redeposer s'ils sont deja sur le serveur.
+IMPORTANT : retirer minenorth_portefeuille-1.0.0.jar du serveur s'il y a ete mis.
+
+--- Casino : nouveaux modeles, caisse et jetons + correctif printer (2026-10-13) ---
+mods/minenorth-casino-1.0.0.jar -> REMPLACE (serveur ET clients, le protocole reseau a change : un client avec l ancien jar ne peut plus se connecter).
+ * Machines a sous : 2 blocs de haut (couronne, levier), 3 styles : machine_a_sous (blanche et or), machine_a_sous_bleue, machine_a_sous_rouge.
+ * Table de roulette : 3 x 2 blocs (roue a gauche, tapis a droite), se pose et se casse d un seul bloc.
+ * Jetons : les jeux se jouent UNIQUEMENT avec des jetons (jeton_1, jeton_5, jeton_25, jeton_100, jeton_500 ; mises en euros entiers).
+   Nouveau bloc caisse_casino : clic droit = ACHETER des jetons (paye par carte, l argent va sur le compte de l entreprise) ou RACHETER TOUS ses jetons
+   (leur valeur est versee sur le compte du joueur ; refuse si la caisse de l entreprise est trop basse). Gains rendus en jetons.
+   Tous ces blocs et jetons sont dans l onglet creatif « MineNorth Casino ».
+ * Nouvelle section "caisse" dans config/minenorth_casino.json (achat_min_euros, achat_max_euros, achats_rapides_euros) : ajoutee toute seule au demarrage.
+ * ATTENTION : les machines et tables DEJA POSEES dans le monde sont a remplacer (l ancien bloc unique n a plus ni haut ni extension). Poser une caisse_casino
+   pres des jeux. Le compte de l entreprise doit avoir des fonds : les jetons rachetes sont payes depuis ce compte.
+mods/minenorth_printer-1.0.0.jar -> REMPLACE (serveur ET clients) : corrige la deconnexion a l arrivee du joueur (erreur "Invalid message java.util.LinkedHashMap"
+   sur le canal minenorth_printer:config, joueur renvoye avec « Invalid player data »).
+SHA256SUMS.txt a jour. Redemarrer le serveur apres remplacement.
+--- Harvest : machines 3D + furie (2026-10-13) ---
+mods/minenorth_harvest-1.20.1-1.0.0.jar remplace le precedent (serveur ET clients, nouveaux blocs animes).
+ * Mini-jeu d'abattage remplace : plus de curseur, on martele le clic gauche (combo / FURIE, jauge qui se vide). Nouvelles cles [lumberjack] : rage*.
+ * Scierie animee : on pose des buches, la lame tourne, les planches sortent. Nouvelle cle [sawmill] sawTicks (l'ancienne turnsPerProduct est ignoree).
+ * Four a minerai + Seau de coulee : minerai + combustible, soufflet a main nue, le metal coule dans le seau devant le bec, trempe a l'eau possible.
+   Cles [foundry] : smeltTicks, coolTicks, bellowsBoostTicks, bellowsMaxTicks (turnsPerProduct ignoree).
+ * Les cles absentes sont ajoutees toutes seules au demarrage dans config/minenorth_harvest-common.toml.
