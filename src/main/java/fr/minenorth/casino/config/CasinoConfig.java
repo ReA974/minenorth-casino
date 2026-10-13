@@ -37,6 +37,7 @@ public final class CasinoConfig {
     /** Distance maximale entre le joueur et la machine / table pour jouer. */
     public int distance_max_blocs = 8;
 
+    public Caisse caisse = new Caisse();
     public Slots machine_a_sous = new Slots();
     public Roulette roulette = new Roulette();
     public Blackjack blackjack = new Blackjack();
@@ -51,6 +52,14 @@ public final class CasinoConfig {
         public double x2 = 0;
         public Symbol() {}
         Symbol(String item, int poids, double x3, double x2) { this.item = item; this.poids = poids; this.x3 = x3; this.x2 = x2; }
+    }
+
+    /** Caisse du casino : achat et rachat des jetons (1, 5, 25, 100 et 500 €). Les jeux se jouent uniquement avec des jetons. */
+    public static final class Caisse {
+        /** Achat minimal / maximal par opération, en euros entiers. */
+        public double achat_min_euros = 1;
+        public double achat_max_euros = 10000;
+        public List<Double> achats_rapides_euros = new ArrayList<>(List.of(10.0, 50.0, 100.0, 500.0, 1000.0));
     }
 
     public static final class Slots {
@@ -127,6 +136,11 @@ public final class CasinoConfig {
         if (c.entreprise == null) c.entreprise = "";
         c.delai_entre_parties_ms = Math.max(0, c.delai_entre_parties_ms);
         c.distance_max_blocs = Math.max(2, c.distance_max_blocs);
+        if (c.caisse == null) c.caisse = new Caisse();
+        Caisse cs = c.caisse;
+        cs.achat_min_euros = Math.max(1, Math.round(cs.achat_min_euros));
+        cs.achat_max_euros = Math.max(cs.achat_min_euros, Math.round(cs.achat_max_euros));
+        cs.achats_rapides_euros = chips(cs.achats_rapides_euros, cs.achat_min_euros, cs.achat_max_euros);
         if (c.machine_a_sous == null) c.machine_a_sous = new Slots();
         if (c.roulette == null) c.roulette = new Roulette();
         if (c.blackjack == null) c.blackjack = new Blackjack();

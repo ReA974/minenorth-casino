@@ -1,0 +1,109 @@
+{
+ "textures": {
+  "top": "minenorthcasino:block/roulette_p3",
+  "rim": "minenorthcasino:block/roulette_rim",
+  "wood": "minenorthcasino:block/roulette_wood",
+  "spindle": "minenorthcasino:block/roulette_spindle",
+  "particle": "minenorthcasino:block/roulette_wood"
+ },
+ "elements": [
+  {
+   "from": [
+    0,
+    11,
+    0
+   ],
+   "to": [
+    16,
+    14,
+    16
+   ],
+   "faces": {
+    "up": {
+     "texture": "#top"
+    },
+    "down": {
+     "texture": "#wood"
+    },
+    "south": {
+     "texture": "#rim"
+    },
+    "east": {
+     "texture": "#rim"
+    }
+   }
+  },
+  {
+   "from": [
+    0,
+    7,
+    0
+   ],
+   "to": [
+    15,
+    11,
+    15
+   ],
+   "faces": {
+    "south": {
+     "texture": "#wood"
+    },
+    "east": {
+     "texture": "#wood"
+    }
+   }
+  },
+  {
+   "from": [
+    12,
+    0,
+    12
+   ],
+   "to": [
+    15,
+    7,
+    15
+   ],
+   "faces": {
+    "north": {
+     "texture": "#wood"
+    },
+    "south": {
+     "texture": "#wood"
+    },
+    "east": {
+     "texture": "#wood"
+    },
+    "west": {
+     "texture": "#wood"
+    }
+   }
+  },
+  {
+   "from": [
+    6,
+    14,
+    0
+   ],
+   "to": [
+    10,
+    18,
+    3
+   ],
+   "faces": {
+    "south": {
+     "texture": "#spindle"
+    },
+    "east": {
+     "texture": "#spindle"
+    },
+    "west": {
+     "texture": "#spindle"
+    },
+    "up": {
+     "texture": "#spindle"
+    }
+   }
+  }
+ ]
+}

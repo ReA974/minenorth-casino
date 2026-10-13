@@ -12,8 +12,13 @@ public final class ClientHandler {
         switch (p.game()) {
             case 0 -> mc.setScreen(new SlotScreen(p));
             case 1 -> mc.setScreen(new RouletteScreen(p));
+            case 3 -> mc.setScreen(new CashierScreen(p));
             default -> mc.setScreen(new BlackjackScreen(p));
         }
+    }
+
+    public static void held(long cents) {
+        if (Minecraft.getInstance().screen instanceof CasinoScreen s) s.held(cents);
     }
 
     public static void message(boolean ok, String msg) {

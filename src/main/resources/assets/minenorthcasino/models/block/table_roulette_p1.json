@@ -1,0 +1,51 @@
+{
+ "textures": {
+  "top": "minenorthcasino:block/roulette_p1",
+  "rim": "minenorthcasino:block/roulette_rim",
+  "wood": "minenorthcasino:block/roulette_wood",
+  "spindle": "minenorthcasino:block/roulette_spindle",
+  "particle": "minenorthcasino:block/roulette_wood"
+ },
+ "elements": [
+  {
+   "from": [
+    0,
+    11,
+    0
+   ],
+   "to": [
+    16,
+    14,
+    16
+   ],
+   "faces": {
+    "up": {
+     "texture": "#top"
+    },
+    "down": {
+     "texture": "#wood"
+    },
+    "north": {
+     "texture": "#rim"
+    }
+   }
+  },
+  {
+   "from": [
+    0,
+    7,
+    1
+   ],
+   "to": [
+    16,
+    11,
+    16
+   ],
+   "faces": {
+    "north": {
+     "texture": "#wood"
+    }
+   }
+  }
+ ]
+}

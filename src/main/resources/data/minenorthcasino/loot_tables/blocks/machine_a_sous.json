@@ -12,6 +12,13 @@
    "conditions": [
     {
      "condition": "minecraft:survives_explosion"
+    },
+    {
+     "condition": "minecraft:block_state_property",
+     "block": "minenorthcasino:machine_a_sous",
+     "properties": {
+      "part": "0"
+     }
     }
    ]
   }

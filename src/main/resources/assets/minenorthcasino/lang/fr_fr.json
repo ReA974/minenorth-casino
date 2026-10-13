@@ -1,6 +1,14 @@
 {
- "block.minenorthcasino.machine_a_sous": "Machine à sous",
+ "block.minenorthcasino.machine_a_sous": "Machine à sous (blanche)",
+ "block.minenorthcasino.machine_a_sous_bleue": "Machine à sous (bleue)",
+ "block.minenorthcasino.machine_a_sous_rouge": "Machine à sous (rouge)",
  "block.minenorthcasino.table_roulette": "Table de roulette",
  "block.minenorthcasino.table_blackjack": "Table de blackjack",
- "itemGroup.minenorthcasino": "MineNorth Casino"
+ "block.minenorthcasino.caisse_casino": "Caisse du casino",
+ "itemGroup.minenorthcasino": "MineNorth Casino",
+ "item.minenorthcasino.jeton_1": "Jeton de 1 €",
+ "item.minenorthcasino.jeton_5": "Jeton de 5 €",
+ "item.minenorthcasino.jeton_25": "Jeton de 25 €",
+ "item.minenorthcasino.jeton_100": "Jeton de 100 €",
+ "item.minenorthcasino.jeton_500": "Jeton de 500 €"
 }

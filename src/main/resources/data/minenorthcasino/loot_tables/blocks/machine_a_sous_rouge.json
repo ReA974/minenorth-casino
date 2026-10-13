@@ -1,0 +1,26 @@
+{
+ "type": "minecraft:block",
+ "pools": [
+  {
+   "rolls": 1,
+   "entries": [
+    {
+     "type": "minecraft:item",
+     "name": "minenorthcasino:machine_a_sous_rouge"
+    }
+   ],
+   "conditions": [
+    {
+     "condition": "minecraft:survives_explosion"
+    },
+    {
+     "condition": "minecraft:block_state_property",
+     "block": "minenorthcasino:machine_a_sous_rouge",
+     "properties": {
+      "part": "0"
+     }
+    }
+   ]
+  }
+ ]
+}

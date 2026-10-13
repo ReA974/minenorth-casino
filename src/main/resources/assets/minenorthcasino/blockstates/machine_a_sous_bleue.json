@@ -1,0 +1,100 @@
+{
+ "variants": {
+  "facing=north,part=0": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 0
+  },
+  "facing=north,part=1": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p1",
+   "y": 0
+  },
+  "facing=north,part=2": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 0
+  },
+  "facing=north,part=3": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 0
+  },
+  "facing=north,part=4": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 0
+  },
+  "facing=north,part=5": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 0
+  },
+  "facing=east,part=0": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 90
+  },
+  "facing=east,part=1": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p1",
+   "y": 90
+  },
+  "facing=east,part=2": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 90
+  },
+  "facing=east,part=3": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 90
+  },
+  "facing=east,part=4": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 90
+  },
+  "facing=east,part=5": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 90
+  },
+  "facing=south,part=0": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 180
+  },
+  "facing=south,part=1": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p1",
+   "y": 180
+  },
+  "facing=south,part=2": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 180
+  },
+  "facing=south,part=3": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 180
+  },
+  "facing=south,part=4": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 180
+  },
+  "facing=south,part=5": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 180
+  },
+  "facing=west,part=0": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 270
+  },
+  "facing=west,part=1": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p1",
+   "y": 270
+  },
+  "facing=west,part=2": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 270
+  },
+  "facing=west,part=3": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 270
+  },
+  "facing=west,part=4": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 270
+  },
+  "facing=west,part=5": {
+   "model": "minenorthcasino:block/machine_a_sous_bleue_p0",
+   "y": 270
+  }
+ }
+}

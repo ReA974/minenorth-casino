@@ -29,7 +29,7 @@ import java.util.function.Supplier;
 public final class ModNetwork {
     private ModNetwork() {}
 
-    private static final String PROTOCOL = "1";
+    private static final String PROTOCOL = "2";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(MineNorthCasino.MOD_ID, "network"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
     private static int id = 0;
@@ -46,6 +46,8 @@ public final class ModNetwork {
         CHANNEL.registerMessage(id++, RouletteResultPacket.class, RouletteResultPacket::encode, RouletteResultPacket::decode, RouletteResultPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(id++, BjActionPacket.class, BjActionPacket::encode, BjActionPacket::decode, BjActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(id++, BjStatePacket.class, BjStatePacket::encode, BjStatePacket::decode, BjStatePacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(id++, ChipsPacket.class, ChipsPacket::encode, ChipsPacket::decode, ChipsPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(id++, CashierActionPacket.class, CashierActionPacket::encode, CashierActionPacket::decode, CashierActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
 
     public static void send(ServerPlayer p, Object packet) { CHANNEL.send(PacketDistributor.PLAYER.with(() -> p), packet); }
@@ -138,7 +140,21 @@ public final class ModNetwork {
         static void handle(BjStatePacket p, Supplier<NetworkEvent.Context> c) { toClient(c, () -> ClientHandler.bjState(p)); }
     }
 
+    /** Valeur (centimes) des jetons que le joueur porte, affichée dans l'écran ouvert. */
+    public record ChipsPacket(long held) {
+        static void encode(ChipsPacket p, FriendlyByteBuf b) { b.writeVarLong(p.held); }
+        static ChipsPacket decode(FriendlyByteBuf b) { return new ChipsPacket(b.readVarLong()); }
+        static void handle(ChipsPacket p, Supplier<NetworkEvent.Context> c) { toClient(c, () -> ClientHandler.held(p.held)); }
+    }
+
     // ------------------------------------------------------------------ client → serveur
+
+    /** Caisse : 0 acheter {@code cents} de jetons, 1 racheter tous ses jetons. */
+    public record CashierActionPacket(int action, long cents) {
+        static void encode(CashierActionPacket p, FriendlyByteBuf b) { b.writeVarInt(p.action); b.writeVarLong(p.cents); }
+        static CashierActionPacket decode(FriendlyByteBuf b) { return new CashierActionPacket(b.readVarInt(), b.readVarLong()); }
+        static void handle(CashierActionPacket p, Supplier<NetworkEvent.Context> c) { toServer(c, sp -> CasinoService.cashier(sp, p.action, p.cents)); }
+    }
 
     public record SlotSpinPacket(long bet) {
         static void encode(SlotSpinPacket p, FriendlyByteBuf b) { b.writeVarLong(p.bet); }

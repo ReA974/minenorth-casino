@@ -26,6 +26,16 @@ final class CasinoBank {
         return MineNorth.bank().transfer(p.server, p.getUUID(), c.account(), cents, BankTx.INCOME, label, MineNorth.displayName(p));
     }
 
+    /**
+     * Gain d'un joueur connecté : versé en jetons (euros entiers). Les centimes restants, qu'un jeton ne peut pas représenter,
+     * sont virés sur son compte. Le compte de l'entreprise n'est débité qu'à ce moment-là (le reste l'est au rachat des jetons).
+     */
+    static boolean payoutChips(ServerPlayer p, Casino c, long cents, String label) {
+        if (cents <= 0) return true;
+        long rest = Chips.give(p, cents);
+        return rest == 0 || payout(p.server, c, p.getUUID(), rest, label);
+    }
+
     /** Verse un gain du compte de l'entreprise au joueur (connecté ou non). */
     static boolean payout(MinecraftServer s, Casino c, UUID player, long cents, String label) {
         if (cents <= 0) return true;

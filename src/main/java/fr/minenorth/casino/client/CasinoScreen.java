@@ -27,6 +27,11 @@ public abstract class CasinoScreen extends Screen {
 
     @Override public boolean isPauseScreen() { return false; }
 
+    /** Valeur des jetons du joueur (centimes) ; -1 tant que le serveur ne l'a pas envoyée. */
+    protected long held = -1;
+
+    public void held(long cents) { held = cents; }
+
     /** Message du serveur (erreur ou information). */
     public void message(boolean ok, String msg) { status = msg; statusOk = ok; }
 
@@ -40,6 +45,10 @@ public abstract class CasinoScreen extends Screen {
     public void render(GuiGraphics g, int mx, int my, float pt) {
         renderBackground(g);
         CasinoStyle.panel(g, left, top, w, h, title, info.company());
+        if (held >= 0) {
+            String s = "Jetons : " + CasinoStyle.euros(held);
+            g.drawString(font, s, left + w - 14 - font.width(s), top + 14, CasinoStyle.GOLD, false);
+        }
         super.render(g, mx, my, pt);
     }
 

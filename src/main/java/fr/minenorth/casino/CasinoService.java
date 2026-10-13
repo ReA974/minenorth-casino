@@ -70,6 +70,11 @@ public final class CasinoService {
                 pk = new ModNetwork.OpenPacket(1, c.name(), CasinoConfig.cents(r.mise_min_euros), CasinoConfig.cents(r.mise_max_euros),
                         CasinoConfig.centsList(r.mises_rapides_euros), List.of(), List.of(), List.of(), gains, 0f, false);
             }
+            case CASHIER -> {
+                CasinoConfig.Caisse k = cfg.caisse;
+                pk = new ModNetwork.OpenPacket(3, c.name(), CasinoConfig.cents(k.achat_min_euros), CasinoConfig.cents(k.achat_max_euros),
+                        CasinoConfig.centsList(k.achats_rapides_euros), List.of(), List.of(), List.of(), List.of(), 0f, false);
+            }
             default -> {
                 CasinoConfig.Blackjack b = cfg.blackjack;
                 pk = new ModNetwork.OpenPacket(2, c.name(), CasinoConfig.cents(b.mise_min_euros), CasinoConfig.cents(b.mise_max_euros),
@@ -79,6 +84,7 @@ public final class CasinoService {
         }
         SESSIONS.put(sp.getUUID(), new Session(game, sp.level().dimension(), pos.immutable()));
         ModNetwork.send(sp, pk);
+        sendHeld(sp);
         BlackjackGame g = HANDS.get(sp.getUUID());
         if (game == Game.BLACKJACK && g != null) sendBj(sp, g, "Main en cours.");
     }
@@ -112,6 +118,67 @@ public final class CasinoService {
         return true;
     }
 
+    // ------------------------------------------------------------------ jetons
+
+    /** Envoie au joueur la valeur de ses jetons (affichée en haut de l'écran de jeu). */
+    private static void sendHeld(ServerPlayer sp) { ModNetwork.send(sp, new ModNetwork.ChipsPacket(Chips.total(sp))); }
+
+    /** Les mises se font en jetons, donc en euros entiers. */
+    private static boolean wholeEuros(ServerPlayer sp, long cents) {
+        if (cents % 100 == 0) return true;
+        reply(sp, false, "Les mises se font en euros entiers (jetons).");
+        return false;
+    }
+
+    /** Retire la mise en jetons (monnaie rendue). Faux si le joueur n'en a pas assez : rien n'est débité. */
+    private static boolean takeChips(ServerPlayer sp, long cents) {
+        if (!Chips.take(sp, cents)) { reply(sp, false, "Pas assez de jetons : achetez-en à la caisse."); return false; }
+        sendHeld(sp);
+        return true;
+    }
+
+    /** Gain versé en jetons (centimes restants sur le compte). */
+    private static boolean payChips(ServerPlayer sp, Casino c, long cents, String label) {
+        boolean ok = CasinoBank.payoutChips(sp, c, cents, label);
+        sendHeld(sp);
+        return ok;
+    }
+
+    // ------------------------------------------------------------------ caisse
+
+    /** Achat (action 0, {@code cents} de jetons payés par carte) ou rachat de tous les jetons contre de l'argent (action 1). */
+    public static void cashier(ServerPlayer sp, int action, long cents) {
+        Casino c = guard(sp, Game.CASHIER);
+        if (c == null) return;
+        CasinoConfig.Caisse k = CasinoConfig.get().caisse;
+        if (action == 0) {
+            long min = CasinoConfig.cents(k.achat_min_euros), max = CasinoConfig.cents(k.achat_max_euros);
+            if (cents < min || cents > max || cents % 100 != 0) { reply(sp, false, "Montant invalide."); return; }
+            if (!cooldown(sp)) return;
+            PayResult r = CasinoBank.stake(sp, c, cents, "Casino : achat de jetons");
+            if (!r.ok()) { reply(sp, false, r.message()); return; }
+            Chips.give(sp, cents);
+            sendHeld(sp);
+            reply(sp, true, "Vous avez acheté " + euros(cents) + " de jetons.");
+        } else if (action == 1) {
+            long total = Chips.total(sp);
+            if (total <= 0) { reply(sp, false, "Vous n'avez aucun jeton."); return; }
+            if (!cooldown(sp)) return;
+            if (CasinoBank.houseBalance(sp.server, c) < total) { reply(sp, false, "La caisse du casino ne peut pas racheter vos jetons."); return; }
+            Chips.takeAll(sp);
+            if (!CasinoBank.payout(sp.server, c, sp.getUUID(), total, "Casino : rachat de jetons")) {
+                Chips.give(sp, total);   // virement impossible : le joueur garde ses jetons
+                sendHeld(sp);
+                reply(sp, false, "Rachat impossible, vos jetons vous sont rendus.");
+                return;
+            }
+            sendHeld(sp);
+            reply(sp, true, "Jetons rachetés : " + euros(total) + " versés sur votre compte.");
+        }
+    }
+
+    private static String euros(long cents) { return (cents / 100) + " €"; }
+
     private static boolean houseCovers(ServerPlayer sp, Casino c, long needed) {
         if (needed <= 0) return true;
         if (CasinoBank.houseBalance(sp.server, c) >= needed) return true;
@@ -127,15 +194,14 @@ public final class CasinoService {
         CasinoConfig.Slots cfg = CasinoConfig.get().machine_a_sous;
         long min = CasinoConfig.cents(cfg.mise_min_euros), max = CasinoConfig.cents(cfg.mise_max_euros);
         if (bet < min || bet > max) { reply(sp, false, "Mise invalide."); return; }
-        if (!cooldown(sp)) return;
+        if (!wholeEuros(sp, bet) || !cooldown(sp)) return;
         long need = (long) Math.ceil(bet * Math.max(0, SlotGame.maxMultiplier(cfg.symboles) - 1));
         if (!houseCovers(sp, c, need)) return;
-        PayResult r = CasinoBank.stake(sp, c, bet, "Casino : machine à sous");
-        if (!r.ok()) { reply(sp, false, r.message()); return; }
+        if (!takeChips(sp, bet)) return;
         int[] reels = SlotGame.spin(RNG, cfg.symboles);
         long win = Math.round(bet * SlotGame.multiplier(reels, cfg.symboles));
         long paid = win;
-        if (win > 0 && !CasinoBank.payout(sp.server, c, sp.getUUID(), win, "Casino : gain machine à sous")) {
+        if (win > 0 && !payChips(sp, c, win, "Casino : gain machine à sous")) {
             paid = 0;
             reply(sp, false, "Gain non versé : prévenez un responsable du casino.");
         }
@@ -157,14 +223,13 @@ public final class CasinoService {
             total += b.cents();
         }
         if (total > max) { reply(sp, false, "Mise totale trop élevée."); return; }
-        if (!cooldown(sp)) return;
+        if (!wholeEuros(sp, total) || !cooldown(sp)) return;
         if (!houseCovers(sp, c, RouletteGame.maxNet(bets, cfg.gains))) return;
-        PayResult r = CasinoBank.stake(sp, c, total, "Casino : roulette");
-        if (!r.ok()) { reply(sp, false, r.message()); return; }
+        if (!takeChips(sp, total)) return;
         int n = RNG.nextInt(37);
         long win = RouletteGame.totalPayout(bets, n, cfg.gains);
         long paid = win;
-        if (win > 0 && !CasinoBank.payout(sp.server, c, sp.getUUID(), win, "Casino : gain roulette")) {
+        if (win > 0 && !payChips(sp, c, win, "Casino : gain roulette")) {
             paid = 0;
             reply(sp, false, "Gain non versé : prévenez un responsable du casino.");
         }
@@ -184,10 +249,9 @@ public final class CasinoService {
                 if (g != null) { reply(sp, false, "Une main est déjà en cours."); return; }
                 long min = CasinoConfig.cents(cfg.mise_min_euros), max = CasinoConfig.cents(cfg.mise_max_euros);
                 if (bet < min || bet > max) { reply(sp, false, "Mise invalide."); return; }
-                if (!cooldown(sp)) return;
+                if (!wholeEuros(sp, bet) || !cooldown(sp)) return;
                 if (!houseCovers(sp, c, bet * 2)) return;
-                PayResult r = CasinoBank.stake(sp, c, bet, "Casino : blackjack");
-                if (!r.ok()) { reply(sp, false, r.message()); return; }
+                if (!takeChips(sp, bet)) return;
                 g = new BlackjackGame(bet, RNG, cfg.nombre_de_jeux);
                 g.player.add(g.draw()); g.dealer.add(g.draw()); g.player.add(g.draw()); g.dealer.add(g.draw());
                 HANDS.put(sp.getUUID(), g);
@@ -211,8 +275,7 @@ public final class CasinoService {
                 if (g == null || g.player.size() != 2 || g.doubled) { reply(sp, false, "Doublage impossible."); return; }
                 if (!cooldown(sp)) return;
                 if (!houseCovers(sp, c, g.bet * 3)) return;
-                PayResult r = CasinoBank.stake(sp, c, g.bet, "Casino : blackjack (double)");
-                if (!r.ok()) { reply(sp, false, r.message()); return; }
+                if (!takeChips(sp, g.bet)) return;
                 g.bet *= 2;
                 g.doubled = true;
                 g.player.add(g.draw());
@@ -228,7 +291,9 @@ public final class CasinoService {
         g.settle(CasinoConfig.get().blackjack.gain_blackjack);
         HANDS.remove(id);
         long paid = g.payout;
-        boolean ok = CasinoBank.payout(s, c, id, g.payout, "Casino : gain blackjack");
+        // Joueur connecté : gain en jetons ; déconnecté : virement direct sur son compte (équivalent d'un rachat immédiat).
+        boolean ok = sp != null ? payChips(sp, c, g.payout, "Casino : gain blackjack")
+                : CasinoBank.payout(s, c, id, g.payout, "Casino : gain blackjack");
         if (!ok) paid = 0;
         CasinoStats.get(s).add("blackjack", g.bet, paid);
         if (sp != null) {
