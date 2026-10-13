@@ -1,99 +1,99 @@
 {
  "variants": {
   "facing=north,part=0": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p0",
    "y": 0
   },
   "facing=north,part=1": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p1",
    "y": 0
   },
   "facing=north,part=2": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p2",
    "y": 0
   },
   "facing=north,part=3": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p3",
    "y": 0
   },
   "facing=north,part=4": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p4",
    "y": 0
   },
   "facing=north,part=5": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p5",
    "y": 0
   },
   "facing=east,part=0": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p0",
    "y": 90
   },
   "facing=east,part=1": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p1",
    "y": 90
   },
   "facing=east,part=2": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p2",
    "y": 90
   },
   "facing=east,part=3": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p3",
    "y": 90
   },
   "facing=east,part=4": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p4",
    "y": 90
   },
   "facing=east,part=5": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p5",
    "y": 90
   },
   "facing=south,part=0": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p0",
    "y": 180
   },
   "facing=south,part=1": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p1",
    "y": 180
   },
   "facing=south,part=2": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p2",
    "y": 180
   },
   "facing=south,part=3": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p3",
    "y": 180
   },
   "facing=south,part=4": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p4",
    "y": 180
   },
   "facing=south,part=5": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p5",
    "y": 180
   },
   "facing=west,part=0": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p0",
    "y": 270
   },
   "facing=west,part=1": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p1",
    "y": 270
   },
   "facing=west,part=2": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p2",
    "y": 270
   },
   "facing=west,part=3": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p3",
    "y": 270
   },
   "facing=west,part=4": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p4",
    "y": 270
   },
   "facing=west,part=5": {
-   "model": "minenorthcasino:block/table_blackjack",
+   "model": "minenorthcasino:block/table_blackjack_p5",
    "y": 270
   }
  }

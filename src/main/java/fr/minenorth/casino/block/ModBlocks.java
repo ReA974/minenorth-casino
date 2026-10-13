@@ -48,19 +48,14 @@ public final class ModBlocks {
         for (int v : CHIP_VALUES) CHIPS.add(ITEMS.register("jeton_" + v, () -> new ChipItem(v)));
     }
 
-    public static final RegistryObject<CreativeModeTab> TAB = TABS.register("casino", () -> CreativeModeTab.builder()
-            .title(Component.translatable("itemGroup.minenorthcasino"))
-            .icon(() -> new ItemStack(SLOT_ITEM.get()))
-            .displayItems((params, out) -> {
+    public static final net.minecraft.world.item.CreativeModeTab.DisplayItemsGenerator TAB_ITEMS = (params, out) -> {
                 out.accept(SLOT_ITEM.get()); out.accept(SLOT_BLUE_ITEM.get()); out.accept(SLOT_RED_ITEM.get());
                 out.accept(ROULETTE_ITEM.get()); out.accept(BLACKJACK_ITEM.get()); out.accept(CASHIER_ITEM.get());
                 for (RegistryObject<Item> c : CHIPS) out.accept(c.get());
-            })
-            .build());
+            };
 
     public static void register(IEventBus bus) {
         BLOCKS.register(bus);
         ITEMS.register(bus);
-        TABS.register(bus);
     }
 }

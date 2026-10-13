@@ -34,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class CasinoBlock extends Block {
     public enum Game {
-        SLOT(1, 1, 2), ROULETTE(3, 2, 1), BLACKJACK(1, 1, 1), CASHIER(1, 1, 1);
+        SLOT(1, 1, 2), ROULETTE(3, 2, 1), BLACKJACK(3, 2, 1), CASHIER(1, 1, 1);
 
         /** Largeur (vers la droite du joueur), profondeur (vers l'arrière) et hauteur, en blocs. */
         final int w, d, h;

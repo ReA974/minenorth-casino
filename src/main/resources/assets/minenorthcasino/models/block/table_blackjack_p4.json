@@ -1,0 +1,50 @@
+{
+ "textures": {
+  "top": "minenorthcasino:block/blackjack_p4",
+  "rim": "minenorthcasino:block/roulette_rim",
+  "wood": "minenorthcasino:block/roulette_wood",
+  "particle": "minenorthcasino:block/roulette_wood"
+ },
+ "elements": [
+  {
+   "from": [
+    0,
+    11,
+    0
+   ],
+   "to": [
+    16,
+    14,
+    16
+   ],
+   "faces": {
+    "up": {
+     "texture": "#top"
+    },
+    "down": {
+     "texture": "#wood"
+    },
+    "south": {
+     "texture": "#rim"
+    }
+   }
+  },
+  {
+   "from": [
+    0,
+    7,
+    0
+   ],
+   "to": [
+    16,
+    11,
+    15
+   ],
+   "faces": {
+    "south": {
+     "texture": "#wood"
+    }
+   }
+  }
+ ]
+}

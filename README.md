@@ -17,7 +17,7 @@ Les mouvements apparaissent dans l'historique du compte de l'entreprise (« Casi
 - `caisse_casino` : la caisse (achat / rachat des jetons). Jetons : `jeton_1`, `jeton_5`, `jeton_25`, `jeton_100`, `jeton_500`.
 - `table_roulette` : grande table de 3 x 2 blocs (roue à gauche, tapis à droite), se pose et se casse d'un bloc. Roulette européenne (0-36), paris multiples : plein, douzaines, colonnes, rouge/noir,
   pair/impair, manque/passe. Clic gauche = poser le jeton, clic droit = retirer.
-- `table_blackjack` : 6 jeux, tirer / rester / doubler, blackjack payé 3 contre 2. Pas de split ni d'assurance.
+- `table_blackjack` : grande table de 3 x 2 blocs (demi-lune, plateau de jetons et sabot), se pose et se casse d'un bloc. 6 jeux, tirer / rester / doubler, blackjack payé 3 contre 2. Pas de split ni d'assurance.
   Un joueur qui se déconnecte en pleine main : le croupier joue et la main est réglée normalement.
 
 Par défaut seuls les OP posent et cassent ces blocs (`pose_op_seulement`).
@@ -36,4 +36,5 @@ Par défaut seuls les OP posent et cassent ces blocs (`pose_op_seulement`).
   `x2` = gain total si 2 identiques). Réglage par défaut : retour joueur ≈ 94 %. `/casino` affiche le retour théorique de la config.
 - `roulette` : mises min (par pari) / max (total), `max_paris`, `gains` (gain net : `plein` 35, `douzaine` 2, `colonne` 2, chances simples 1).
 - `blackjack` : mises, `gain_blackjack` (1.5), `croupier_tire_soft17`, `nombre_de_jeux`.
+
 
