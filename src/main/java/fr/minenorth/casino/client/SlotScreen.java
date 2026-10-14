@@ -49,6 +49,12 @@ public class SlotScreen extends CasinoScreen {
         lastWin = -1;
         status = "";
         ModNetwork.CHANNEL.sendToServer(new ModNetwork.SlotSpinPacket(chip));
+        sound(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK.get(), 0.8f, 0.8f);
+        sound(net.minecraft.sounds.SoundEvents.PISTON_EXTEND, 1.6f, 0.4f);   // levier
+    }
+
+    private static void sound(net.minecraft.sounds.SoundEvent e, float pitch, float volume) {
+        net.minecraft.client.Minecraft.getInstance().getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(e, pitch, volume));
     }
 
     public void result(ModNetwork.SlotResultPacket p) {
@@ -68,13 +74,28 @@ public class SlotScreen extends CasinoScreen {
     public void tick() {
         if (!spinning()) return;
         ticks++;
-        if (ticks % 2 == 0) for (int i = 0; i < 3; i++) shown[i] = anim.nextInt(symbols.size());
+        if (ticks % 2 == 0) {
+            for (int i = 0; i < 3; i++) shown[i] = anim.nextInt(symbols.size());
+            // cliquetis des rouleaux tant qu'au moins un tourne
+            if (finalReels == null || ticks < STOP_AT[2]) sound(net.minecraft.sounds.SoundEvents.NOTE_BLOCK_HAT.value(), 1.4f + anim.nextFloat() * 0.4f, 0.3f);
+        }
         if (finalReels != null) {
-            for (int i = 0; i < 3; i++) if (ticks >= STOP_AT[i]) shown[i] = finalReels[i];
+            for (int i = 0; i < 3; i++) {
+                if (ticks >= STOP_AT[i]) {
+                    if (ticks == STOP_AT[i]) sound(net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BASEDRUM.value(), 0.9f + 0.15f * i, 0.8f);   // arrêt du rouleau
+                    shown[i] = finalReels[i];
+                }
+            }
             if (ticks >= STOP_AT[2] + 4) {
                 finalReels = null;
-                if (lastWin > 0) { status = "GAGNÉ ! +" + CasinoStyle.euros(lastWin); statusOk = true; }
-                else { status = "Perdu."; statusOk = false; }
+                if (lastWin > 0) {
+                    status = "GAGNÉ ! +" + CasinoStyle.euros(lastWin); statusOk = true;
+                    sound(net.minecraft.sounds.SoundEvents.PLAYER_LEVELUP, 1.2f, 0.8f);
+                    sound(net.minecraft.sounds.SoundEvents.EXPERIENCE_ORB_PICKUP, 1.5f, 0.8f);
+                } else {
+                    status = "Perdu."; statusOk = false;
+                    sound(net.minecraft.sounds.SoundEvents.VILLAGER_NO, 1.0f, 0.5f);
+                }
             }
         } else if (ticks > 200) waiting = false;   // pas de réponse du serveur
     }

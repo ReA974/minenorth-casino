@@ -24,6 +24,7 @@ public class RouletteScreen extends CasinoScreen {
     private record Cell(int x, int y, int w, int h, int type, int value, String label, int color) {}
 
     private final Map<Integer, Long> bets = new LinkedHashMap<>();   // clé = type * 100 + valeur
+    private final Map<Integer, Long> sentBets = new LinkedHashMap<>();   // paris envoyés, remis sur le tapis si le serveur refuse
     private final List<Cell> cells = new ArrayList<>();
     private final Random anim = new Random();
     private boolean waiting;
@@ -125,6 +126,9 @@ public class RouletteScreen extends CasinoScreen {
         status = "";
         sound(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK.get(), 1.0f, 0.8f);
         ModNetwork.CHANNEL.sendToServer(new ModNetwork.RouletteSpinPacket(list));
+        sentBets.clear();
+        sentBets.putAll(bets);
+        bets.clear();   // les jetons quittent le tapis dès que le tirage commence
     }
 
     /** Résultat du serveur : la bille quitte sa course et va se poser exactement dans la case du numéro tiré. */
@@ -145,7 +149,10 @@ public class RouletteScreen extends CasinoScreen {
     @Override
     public void message(boolean ok, String msg) {
         super.message(ok, msg);
-        if (!ok && waiting) waiting = false;
+        if (!ok && waiting) {            // tirage refusé par le serveur : on remet les jetons sur le tapis
+            waiting = false;
+            bets.putAll(sentBets);
+        }
     }
 
     @Override
@@ -155,7 +162,7 @@ public class RouletteScreen extends CasinoScreen {
         double c = clock();
         if (!revealed && ticks % 2 == 0) shownNumber = anim.nextInt(37);   // numéros qui défilent pendant le tirage
         if (result == null) {
-            if (ticks > 200) waiting = false;   // pas de réponse du serveur
+            if (ticks > 200) { waiting = false; bets.putAll(sentBets); }   // pas de réponse du serveur
             else if (c - lastRattle >= 3) {     // la bille tourne : petit cliquetis
                 lastRattle = c;
                 soundHat(1.6f + anim.nextFloat() * 0.3f, 0.25f);
