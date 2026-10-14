@@ -30,7 +30,9 @@ public class RouletteScreen extends CasinoScreen {
     private int ticks;
     private ModNetwork.RouletteResultPacket result;
     private CasinoButton spinBtn, clearBtn;
-    private int lastNumber = -1;
+    private int lastNumber = -1, shownNumber = -1;
+    /** Jetons reçus pendant le tirage : affichés seulement une fois le résultat révélé (sinon le solde annonce le gain avant la fin). */
+    private long pendingHeld = Long.MIN_VALUE;
 
     // Animation de la roue (dessinée dans l'écran, quelques dizaines de rectangles par image : aucun coût mesurable en FPS).
     /** Ordre des numéros sur la roue européenne. */
@@ -50,6 +52,15 @@ public class RouletteScreen extends CasinoScreen {
 
     public void history(List<Integer> draws) {
         if (busy()) pendingHistory = draws; else history = draws;
+    }
+
+    @Override
+    public void held(long cents) {
+        if (busy() && !revealed) pendingHeld = cents; else super.held(cents);
+    }
+
+    private void flushHeld() {
+        if (pendingHeld != Long.MIN_VALUE) { super.held(pendingHeld); pendingHeld = Long.MIN_VALUE; }
     }
 
     private double clock() { return (System.nanoTime() - base) / 50_000_000.0; }
@@ -109,6 +120,7 @@ public class RouletteScreen extends CasinoScreen {
         ticks = 0;
         landStart = -1;
         revealed = false;
+        shownNumber = -1;
         lastRattle = clock();
         status = "";
         sound(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK.get(), 1.0f, 0.8f);
@@ -138,9 +150,10 @@ public class RouletteScreen extends CasinoScreen {
 
     @Override
     public void tick() {
-        if (!busy()) return;
+        if (!busy()) { flushHeld(); return; }
         ticks++;
         double c = clock();
+        if (!revealed && ticks % 2 == 0) shownNumber = anim.nextInt(37);   // numéros qui défilent pendant le tirage
         if (result == null) {
             if (ticks > 200) waiting = false;   // pas de réponse du serveur
             else if (c - lastRattle >= 3) {     // la bille tourne : petit cliquetis
@@ -161,7 +174,8 @@ public class RouletteScreen extends CasinoScreen {
             lastPocket = pocket;
         } else if (!revealed) {
             revealed = true;
-            lastNumber = result.number();
+            lastNumber = shownNumber = result.number();
+            flushHeld();
             if (result.win() > 0) {
                 status = "Le " + lastNumber + " : vous gagnez " + CasinoStyle.euros(result.win()) + " !"; statusOk = true;
                 sound(net.minecraft.sounds.SoundEvents.PLAYER_LEVELUP, 1.1f, 0.8f);
@@ -208,13 +222,6 @@ public class RouletteScreen extends CasinoScreen {
         chipRow(g, left + 48, y, mx, my);
         g.drawString(font, fit("Mise totale : " + CasinoStyle.euros(total()) + "   (" + CasinoStyle.euros(info.min()) + " par pari, "
                 + CasinoStyle.euros(info.max()) + " max)", w - 24), left + 12, y + 22, CasinoStyle.WHITE, false);
-        // Numéro
-        int shown = busy() ? -1 : lastNumber;
-        if (shown >= 0) {
-            g.fill(left + w / 2 - 22, y + 36, left + w / 2 + 22, y + 66, CasinoStyle.GOLD);
-            g.fill(left + w / 2 - 20, y + 38, left + w / 2 + 20, y + 64, numberColor(shown));
-            CasinoStyle.scaled(g, Component.literal(String.valueOf(shown)), left + w / 2 - font.width(String.valueOf(shown)) - 2 + (shown < 10 ? 4 : 0), y + 44, 2f, CasinoStyle.WHITE);
-        }
         drawStatus(g, top + h - 50);
         // Gains : sous le numéro (ils chevauchaient le nom du casino en haut de l'écran).
         CasinoStyle.centered(g, fit("Plein x" + (info.gains().get(0) + 1) + "  Douzaine/Colonne x" + (info.gains().get(7) + 1)
@@ -287,16 +294,19 @@ public class RouletteScreen extends CasinoScreen {
         g.fill(bx - 2, by - 2, bx + 2, by + 2, 0xFFFFFFFF);
         // Texte
         int tx = x0 + 126;
-        if (revealed && result != null) {
-            int n = result.number();
+        boolean done = revealed && result != null;
+        int n = done ? result.number() : shownNumber;
+        if (n >= 0) {
             g.fill(tx, y0 + 18, tx + 50, y0 + 62, CasinoStyle.GOLD);
             g.fill(tx + 2, y0 + 20, tx + 48, y0 + 60, numberColor(n));
             String s = String.valueOf(n);
             CasinoStyle.scaled(g, Component.literal(s), tx + 25 - font.width(s), y0 + 34, 2f, CasinoStyle.WHITE);
+        }
+        if (done) {
             g.drawString(font, result.win() > 0 ? "Gagné : +" + CasinoStyle.euros(result.win()) : "Perdu", tx + 62, y0 + 34,
                     result.win() > 0 ? CasinoStyle.OK : CasinoStyle.ALERT, false);
         } else {
-            g.drawString(font, "Rien ne va plus...", tx, y0 + 38, CasinoStyle.WARN, false);
+            g.drawString(font, "Rien ne va plus...", tx + 56, y0 + 34, CasinoStyle.WARN, false);
         }
     }
 
