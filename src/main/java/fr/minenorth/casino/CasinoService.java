@@ -58,8 +58,8 @@ public final class CasinoService {
     public static void open(ServerPlayer sp, Game game, BlockPos pos) {
         Casino c = CompanyLink.resolve(sp.server);
         if (c == null) { sp.displayClientMessage(Component.literal("§cCasino hors service."), true); return; }
-        // La machine à sous rouge est réservée aux grades VIP (avantage « casinoVip »).
-        if (sp.level().getBlockState(pos).is(fr.minenorth.casino.block.ModBlocks.SLOT_RED.get())
+        // La machine à sous VIP (dorée) est réservée aux grades VIP (avantage « casinoVip ») ; les trois autres sont libres.
+        if (sp.level().getBlockState(pos).is(fr.minenorth.casino.block.ModBlocks.SLOT_VIP.get())
                 && fr.minenorth.api.MineNorth.grades().perk(sp.server, sp.getUUID(), "casinoVip", 0) <= 0) {
             sp.displayClientMessage(Component.literal("§6Machine à sous VIP : réservée aux membres VIP."), true);
             return;

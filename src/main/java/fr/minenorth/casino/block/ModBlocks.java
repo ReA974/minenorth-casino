@@ -31,14 +31,17 @@ public final class ModBlocks {
     public static final RegistryObject<Block> SLOT = BLOCKS.register("machine_a_sous", () -> new CasinoBlock(CasinoBlock.Game.SLOT));
     public static final RegistryObject<Block> SLOT_BLUE = BLOCKS.register("machine_a_sous_bleue", () -> new CasinoBlock(CasinoBlock.Game.SLOT));
     public static final RegistryObject<Block> SLOT_RED = BLOCKS.register("machine_a_sous_rouge", () -> new CasinoBlock(CasinoBlock.Game.SLOT));
-    public static final RegistryObject<Block> ROULETTE = BLOCKS.register("table_roulette", () -> new CasinoBlock(CasinoBlock.Game.ROULETTE));
+    /** Machine à sous dorée, réservée aux grades VIP (avantage « casinoVip » du mod VIP) ; les trois autres restent libres d'accès. */
+    public static final RegistryObject<Block> SLOT_VIP = BLOCKS.register("machine_a_sous_vip", () -> new CasinoBlock(CasinoBlock.Game.SLOT));
+    public static final RegistryObject<Block> ROULETTE =BLOCKS.register("table_roulette", () -> new CasinoBlock(CasinoBlock.Game.ROULETTE));
     public static final RegistryObject<Block> BLACKJACK = BLOCKS.register("table_blackjack", () -> new CasinoBlock(CasinoBlock.Game.BLACKJACK));
     public static final RegistryObject<Block> CASHIER = BLOCKS.register("caisse_casino", () -> new CasinoBlock(CasinoBlock.Game.CASHIER));
 
     public static final RegistryObject<Item> SLOT_ITEM = ITEMS.register("machine_a_sous", () -> new BlockItem(SLOT.get(), new Item.Properties()));
     public static final RegistryObject<Item> SLOT_BLUE_ITEM = ITEMS.register("machine_a_sous_bleue", () -> new BlockItem(SLOT_BLUE.get(), new Item.Properties()));
     public static final RegistryObject<Item> SLOT_RED_ITEM = ITEMS.register("machine_a_sous_rouge", () -> new BlockItem(SLOT_RED.get(), new Item.Properties()));
-    public static final RegistryObject<Item> ROULETTE_ITEM = ITEMS.register("table_roulette", () -> new BlockItem(ROULETTE.get(), new Item.Properties()));
+    public static final RegistryObject<Item> SLOT_VIP_ITEM = ITEMS.register("machine_a_sous_vip", () -> new BlockItem(SLOT_VIP.get(), new Item.Properties().rarity(net.minecraft.world.item.Rarity.RARE)));
+    public static final RegistryObject<Item> ROULETTE_ITEM =ITEMS.register("table_roulette", () -> new BlockItem(ROULETTE.get(), new Item.Properties()));
     public static final RegistryObject<Item> BLACKJACK_ITEM = ITEMS.register("table_blackjack", () -> new BlockItem(BLACKJACK.get(), new Item.Properties()));
     public static final RegistryObject<Item> CASHIER_ITEM = ITEMS.register("caisse_casino", () -> new BlockItem(CASHIER.get(), new Item.Properties()));
 
@@ -49,7 +52,7 @@ public final class ModBlocks {
     }
 
     public static final net.minecraft.world.item.CreativeModeTab.DisplayItemsGenerator TAB_ITEMS = (params, out) -> {
-                out.accept(SLOT_ITEM.get()); out.accept(SLOT_BLUE_ITEM.get()); out.accept(SLOT_RED_ITEM.get());
+                out.accept(SLOT_ITEM.get()); out.accept(SLOT_BLUE_ITEM.get()); out.accept(SLOT_RED_ITEM.get()); out.accept(SLOT_VIP_ITEM.get());
                 out.accept(ROULETTE_ITEM.get()); out.accept(BLACKJACK_ITEM.get()); out.accept(CASHIER_ITEM.get());
                 for (RegistryObject<Item> c : CHIPS) out.accept(c.get());
             };
