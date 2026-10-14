@@ -55,6 +55,24 @@ public final class CasinoService {
         return k <= 1.0 ? cents : Math.round(cents * k / 100.0) * 100;   // reste en euros entiers
     }
 
+    /**
+     * Mises rapides proposées : celles de la config ; si le grade relève la mise maximale (casinoMax), on ajoute des paliers plus gros
+     * jusqu'à cette mise maximale (sinon seules les mises de la config seraient sélectionnables). 5 boutons au plus, la rangée tient dans l'écran.
+     */
+    private static List<Long> vipChips(ServerPlayer sp, List<Long> base, long baseMax) {
+        long max = maxFor(sp, baseMax);
+        if (max <= baseMax) return base;
+        java.util.TreeSet<Long> all = new java.util.TreeSet<>(base);
+        for (long e : new long[]{250, 500, 1000, 2500, 5000, 10000, 25000}) {
+            long c = e * 100;
+            if (c > baseMax && c <= max) all.add(c);
+        }
+        all.add(max);
+        List<Long> out = new ArrayList<>(all);
+        while (out.size() > 5) out.remove(1);   // on garde la plus petite mise et les plus grosses
+        return out;
+    }
+
     public static void open(ServerPlayer sp, Game game, BlockPos pos) {
         Casino c = CompanyLink.resolve(sp.server);
         if (c == null) { sp.displayClientMessage(Component.literal("§cCasino hors service."), true); return; }
@@ -73,14 +91,14 @@ public final class CasinoService {
                 List<Float> x3 = new ArrayList<>(), x2 = new ArrayList<>();
                 for (Symbol y : s.symboles) { items.add(y.item); x3.add((float) y.x3); x2.add((float) y.x2); }
                 pk = new ModNetwork.OpenPacket(0, c.name(), CasinoConfig.cents(s.mise_min_euros), maxFor(sp, CasinoConfig.cents(s.mise_max_euros)),
-                        CasinoConfig.centsList(s.mises_rapides_euros), items, x3, x2, List.of(), 0f, false);
+                        vipChips(sp, CasinoConfig.centsList(s.mises_rapides_euros), CasinoConfig.cents(s.mise_max_euros)), items, x3, x2, List.of(), 0f, false);
             }
             case ROULETTE -> {
                 CasinoConfig.Roulette r = cfg.roulette;
                 List<Integer> gains = new ArrayList<>();
                 for (String k : RouletteGame.KEYS) gains.add(r.gains.getOrDefault(k, 0));
                 pk = new ModNetwork.OpenPacket(1, c.name(), CasinoConfig.cents(r.mise_min_euros), maxFor(sp, CasinoConfig.cents(r.mise_max_euros)),
-                        CasinoConfig.centsList(r.mises_rapides_euros), List.of(), List.of(), List.of(), gains, 0f, false);
+                        vipChips(sp, CasinoConfig.centsList(r.mises_rapides_euros), CasinoConfig.cents(r.mise_max_euros)), List.of(), List.of(), List.of(), gains, 0f, false);
             }
             case CASHIER -> {
                 CasinoConfig.Caisse k = cfg.caisse;
@@ -90,7 +108,7 @@ public final class CasinoService {
             default -> {
                 CasinoConfig.Blackjack b = cfg.blackjack;
                 pk = new ModNetwork.OpenPacket(2, c.name(), CasinoConfig.cents(b.mise_min_euros), maxFor(sp, CasinoConfig.cents(b.mise_max_euros)),
-                        CasinoConfig.centsList(b.mises_rapides_euros), List.of(), List.of(), List.of(), List.of(),
+                        vipChips(sp, CasinoConfig.centsList(b.mises_rapides_euros), CasinoConfig.cents(b.mise_max_euros)), List.of(), List.of(), List.of(), List.of(),
                         (float) b.gain_blackjack, b.croupier_tire_soft17);
             }
         }

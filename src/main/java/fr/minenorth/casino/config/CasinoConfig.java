@@ -166,7 +166,12 @@ public final class CasinoConfig {
         b.gain_blackjack = Math.max(0, Math.min(10, b.gain_blackjack));
         b.nombre_de_jeux = Math.max(1, Math.min(8, b.nombre_de_jeux));
         s.mises_rapides_euros = chips(s.mises_rapides_euros, s.mise_min_euros, s.mise_max_euros);
+        // Roulette : le jeton de 1 € est toujours disponible (mise minimale 1 €), même avec une ancienne config qui ne l'avait pas.
+        r.mise_min_euros = Math.min(r.mise_min_euros, 1);
+        if (r.mises_rapides_euros == null) r.mises_rapides_euros = new ArrayList<>();
+        if (!r.mises_rapides_euros.contains(1.0)) r.mises_rapides_euros = new ArrayList<>(r.mises_rapides_euros) {{ add(1.0); }};
         r.mises_rapides_euros = chips(r.mises_rapides_euros, r.mise_min_euros, r.mise_max_euros);
+        while (r.mises_rapides_euros.size() > 5) r.mises_rapides_euros.remove(1);   // la rangée de boutons de la roulette en contient 5 au plus
         b.mises_rapides_euros = chips(b.mises_rapides_euros, b.mise_min_euros, b.mise_max_euros);
     }
 
