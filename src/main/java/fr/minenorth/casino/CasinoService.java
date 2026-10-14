@@ -49,6 +49,12 @@ public final class CasinoService {
 
     // ------------------------------------------------------------------ ouverture
 
+    /** Mise maximale du joueur : celle de la config, multipliée par l'avantage « casinoMax » de son grade (mod VIP). */
+    private static long maxFor(ServerPlayer sp, long cents) {
+        double k = fr.minenorth.api.MineNorth.grades().perk(sp.server, sp.getUUID(), "casinoMax", 1.0);
+        return k <= 1.0 ? cents : Math.round(cents * k / 100.0) * 100;   // reste en euros entiers
+    }
+
     public static void open(ServerPlayer sp, Game game, BlockPos pos) {
         Casino c = CompanyLink.resolve(sp.server);
         if (c == null) { sp.displayClientMessage(Component.literal("§cCasino hors service."), true); return; }
@@ -60,14 +66,14 @@ public final class CasinoService {
                 List<String> items = new ArrayList<>();
                 List<Float> x3 = new ArrayList<>(), x2 = new ArrayList<>();
                 for (Symbol y : s.symboles) { items.add(y.item); x3.add((float) y.x3); x2.add((float) y.x2); }
-                pk = new ModNetwork.OpenPacket(0, c.name(), CasinoConfig.cents(s.mise_min_euros), CasinoConfig.cents(s.mise_max_euros),
+                pk = new ModNetwork.OpenPacket(0, c.name(), CasinoConfig.cents(s.mise_min_euros), maxFor(sp, CasinoConfig.cents(s.mise_max_euros)),
                         CasinoConfig.centsList(s.mises_rapides_euros), items, x3, x2, List.of(), 0f, false);
             }
             case ROULETTE -> {
                 CasinoConfig.Roulette r = cfg.roulette;
                 List<Integer> gains = new ArrayList<>();
                 for (String k : RouletteGame.KEYS) gains.add(r.gains.getOrDefault(k, 0));
-                pk = new ModNetwork.OpenPacket(1, c.name(), CasinoConfig.cents(r.mise_min_euros), CasinoConfig.cents(r.mise_max_euros),
+                pk = new ModNetwork.OpenPacket(1, c.name(), CasinoConfig.cents(r.mise_min_euros), maxFor(sp, CasinoConfig.cents(r.mise_max_euros)),
                         CasinoConfig.centsList(r.mises_rapides_euros), List.of(), List.of(), List.of(), gains, 0f, false);
             }
             case CASHIER -> {
@@ -77,7 +83,7 @@ public final class CasinoService {
             }
             default -> {
                 CasinoConfig.Blackjack b = cfg.blackjack;
-                pk = new ModNetwork.OpenPacket(2, c.name(), CasinoConfig.cents(b.mise_min_euros), CasinoConfig.cents(b.mise_max_euros),
+                pk = new ModNetwork.OpenPacket(2, c.name(), CasinoConfig.cents(b.mise_min_euros), maxFor(sp, CasinoConfig.cents(b.mise_max_euros)),
                         CasinoConfig.centsList(b.mises_rapides_euros), List.of(), List.of(), List.of(), List.of(),
                         (float) b.gain_blackjack, b.croupier_tire_soft17);
             }
@@ -193,7 +199,7 @@ public final class CasinoService {
         Casino c = guard(sp, Game.SLOT);
         if (c == null) return;
         CasinoConfig.Slots cfg = CasinoConfig.get().machine_a_sous;
-        long min = CasinoConfig.cents(cfg.mise_min_euros), max = CasinoConfig.cents(cfg.mise_max_euros);
+        long min = CasinoConfig.cents(cfg.mise_min_euros), max = maxFor(sp, CasinoConfig.cents(cfg.mise_max_euros));
         if (bet < min || bet > max) { reply(sp, false, "Mise invalide."); return; }
         if (!wholeEuros(sp, bet) || !cooldown(sp)) return;
         long need = (long) Math.ceil(bet * Math.max(0, SlotGame.maxMultiplier(cfg.symboles) - 1));
@@ -216,7 +222,7 @@ public final class CasinoService {
         Casino c = guard(sp, Game.ROULETTE);
         if (c == null) return;
         CasinoConfig.Roulette cfg = CasinoConfig.get().roulette;
-        long min = CasinoConfig.cents(cfg.mise_min_euros), max = CasinoConfig.cents(cfg.mise_max_euros);
+        long min = CasinoConfig.cents(cfg.mise_min_euros), max = maxFor(sp, CasinoConfig.cents(cfg.mise_max_euros));
         if (bets.isEmpty() || bets.size() > cfg.max_paris) { reply(sp, false, "Nombre de paris invalide."); return; }
         long total = 0;
         for (Bet b : bets) {
@@ -257,7 +263,7 @@ public final class CasinoService {
         switch (action) {
             case ModNetwork.BjActionPacket.DEAL -> {
                 if (g != null) { reply(sp, false, "Une main est déjà en cours."); return; }
-                long min = CasinoConfig.cents(cfg.mise_min_euros), max = CasinoConfig.cents(cfg.mise_max_euros);
+                long min = CasinoConfig.cents(cfg.mise_min_euros), max = maxFor(sp, CasinoConfig.cents(cfg.mise_max_euros));
                 if (bet < min || bet > max) { reply(sp, false, "Mise invalide."); return; }
                 if (!wholeEuros(sp, bet) || !cooldown(sp)) return;
                 if (!houseCovers(sp, c, bet * 2)) return;
