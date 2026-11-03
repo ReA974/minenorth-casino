@@ -34,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class CasinoBlock extends Block {
     public enum Game {
-        SLOT(1, 1, 2), ROULETTE(3, 2, 1), BLACKJACK(3, 2, 1), CASHIER(1, 1, 1);
+        SLOT(1, 1, 2), ROULETTE(3, 2, 1), BLACKJACK(3, 2, 1), CASHIER(1, 1, 1), POKER(3, 2, 1), COCKFIGHT(3, 2, 1);
 
         /** Largeur (vers la droite du joueur), profondeur (vers l'arrière) et hauteur, en blocs. */
         final int w, d, h;
@@ -46,15 +46,20 @@ public class CasinoBlock extends Block {
     public static final IntegerProperty PART = IntegerProperty.create("part", 0, 5);
     private static final VoxelShape FULL = Block.box(0, 0, 0, 16, 16, 16);
     private static final VoxelShape TABLE = Block.box(0, 0, 0, 16, 14, 16);
+    private static final VoxelShape PIT = Block.box(0, 0, 0, 16, 10, 16);
+
+    /** Tables posées au sol (roulette, blackjack, poker) : bois, hauteur de table. */
+    public boolean isTable() { return game == Game.ROULETTE || game == Game.BLACKJACK || game == Game.POKER; }
 
     public final Game game;
 
     public CasinoBlock(Game game) {
         // Résistance énorme : une explosion ne doit pas laisser une table à moitié détruite.
-        super(BlockBehaviour.Properties.of().strength(3.0f, 3600000.0f).sound(game == Game.ROULETTE || game == Game.BLACKJACK ? SoundType.WOOD : SoundType.METAL)
+        super(BlockBehaviour.Properties.of().strength(3.0f, 3600000.0f).sound(game == Game.SLOT || game == Game.CASHIER ? SoundType.METAL : SoundType.WOOD)
                 .noOcclusion().pushReaction(PushReaction.BLOCK)
                 // Les loupiotes de la machine à sous éclairent un peu la salle (le morceau du haut seulement).
-                .lightLevel(s -> game == Game.SLOT && s.getValue(PART) == 1 ? 8 : 0));
+                .lightLevel(s -> game == Game.SLOT && s.getValue(PART) == 1 ? 8 : game == Game.CASHIER ? 6
+                        : game == Game.COCKFIGHT && s.getValue(PART) == 0 && s.getValue(ArenaBlock.OPEN) ? 11 : 0));
         this.game = game;
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(PART, 0));
     }
@@ -62,7 +67,7 @@ public class CasinoBlock extends Block {
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> b) { b.add(FACING, PART); }
 
     @Override public VoxelShape getShape(BlockState s, BlockGetter l, BlockPos p, CollisionContext c) {
-        return game == Game.ROULETTE || game == Game.BLACKJACK ? TABLE : FULL;
+        return game == Game.COCKFIGHT ? PIT : isTable() ? TABLE : FULL;
     }
 
     // ------------------------------------------------------------------ géométrie des morceaux
@@ -71,18 +76,19 @@ public class CasinoBlock extends Block {
      * Position du morceau (i, j, k) pour un bloc principal en {@code master}. i vers la droite du joueur, j vers l'arrière, k vers le haut.
      * Repère « face au nord » (x- = droite du joueur), puis tourné d'autant de quarts de tour que l'orientation du bloc.
      */
-    private static BlockPos partPos(BlockPos master, Direction f, int i, int j, int k) {
+    static BlockPos partPos(BlockPos master, Direction f, int i, int j, int k) {
         int x = -i, z = j;
         for (int s = (f.get2DDataValue() + 2) % 4; s > 0; s--) { int nx = -z; z = x; x = nx; }
         return master.offset(x, k, z);
     }
 
-    private BlockPos partPos(BlockPos master, Direction f, int idx) {
+    public BlockPos partPos(BlockPos master, Direction f, int idx) {
         int k = idx / (game.w * game.d), rem = idx % (game.w * game.d);
         return partPos(master, f, rem % game.w, rem / game.w, k);
     }
 
-    private BlockPos masterOf(BlockPos pos, BlockState st) {
+    /** Position du morceau principal (0) de la machine ou table dont {@code pos} fait partie. */
+    public BlockPos masterOf(BlockPos pos, BlockState st) {
         BlockPos off = partPos(BlockPos.ZERO, st.getValue(FACING), st.getValue(PART));
         return pos.subtract(off);
     }
@@ -140,7 +146,10 @@ public class CasinoBlock extends Block {
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (level.isClientSide) return InteractionResult.SUCCESS;
-        if (player instanceof ServerPlayer sp) CasinoService.open(sp, game, pos);
+        if (player instanceof ServerPlayer sp) {
+            if (game == Game.COCKFIGHT) fr.minenorth.casino.CockfightService.open(sp, masterOf(pos, state));
+            else CasinoService.open(sp, game, pos);
+        }
         return InteractionResult.CONSUME;
     }
 }

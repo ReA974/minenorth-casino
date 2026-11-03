@@ -36,6 +36,9 @@ public final class ModBlocks {
     public static final RegistryObject<Block> ROULETTE =BLOCKS.register("table_roulette", () -> new CasinoBlock(CasinoBlock.Game.ROULETTE));
     public static final RegistryObject<Block> BLACKJACK = BLOCKS.register("table_blackjack", () -> new CasinoBlock(CasinoBlock.Game.BLACKJACK));
     public static final RegistryObject<Block> CASHIER = BLOCKS.register("caisse_casino", () -> new CasinoBlock(CasinoBlock.Game.CASHIER));
+    public static final RegistryObject<Block> POKER = BLOCKS.register("table_poker", () -> new CasinoBlock(CasinoBlock.Game.POKER));
+    /** Arène clandestine de combats de coqs (paris en espèces, hors casino). */
+    public static final RegistryObject<Block> ARENA = BLOCKS.register("arene_coqs", ArenaBlock::new);
 
     public static final RegistryObject<Item> SLOT_ITEM = ITEMS.register("machine_a_sous", () -> new BlockItem(SLOT.get(), new Item.Properties()));
     public static final RegistryObject<Item> SLOT_BLUE_ITEM = ITEMS.register("machine_a_sous_bleue", () -> new BlockItem(SLOT_BLUE.get(), new Item.Properties()));
@@ -44,6 +47,8 @@ public final class ModBlocks {
     public static final RegistryObject<Item> ROULETTE_ITEM =ITEMS.register("table_roulette", () -> new BlockItem(ROULETTE.get(), new Item.Properties()));
     public static final RegistryObject<Item> BLACKJACK_ITEM = ITEMS.register("table_blackjack", () -> new BlockItem(BLACKJACK.get(), new Item.Properties()));
     public static final RegistryObject<Item> CASHIER_ITEM = ITEMS.register("caisse_casino", () -> new BlockItem(CASHIER.get(), new Item.Properties()));
+    public static final RegistryObject<Item> POKER_ITEM = ITEMS.register("table_poker", () -> new BlockItem(POKER.get(), new Item.Properties()));
+    public static final RegistryObject<Item> ARENA_ITEM = ITEMS.register("arene_coqs", () -> new BlockItem(ARENA.get(), new Item.Properties()));
 
     /** Jetons jeton_1, jeton_5, jeton_25, jeton_100, jeton_500. */
     public static final List<RegistryObject<Item>> CHIPS = new ArrayList<>();
@@ -53,7 +58,8 @@ public final class ModBlocks {
 
     public static final net.minecraft.world.item.CreativeModeTab.DisplayItemsGenerator TAB_ITEMS = (params, out) -> {
                 out.accept(SLOT_ITEM.get()); out.accept(SLOT_BLUE_ITEM.get()); out.accept(SLOT_RED_ITEM.get()); out.accept(SLOT_VIP_ITEM.get());
-                out.accept(ROULETTE_ITEM.get()); out.accept(BLACKJACK_ITEM.get()); out.accept(CASHIER_ITEM.get());
+                out.accept(ROULETTE_ITEM.get()); out.accept(BLACKJACK_ITEM.get()); out.accept(POKER_ITEM.get()); out.accept(CASHIER_ITEM.get());
+                out.accept(ARENA_ITEM.get());
                 for (RegistryObject<Item> c : CHIPS) out.accept(c.get());
             };
 

@@ -38,10 +38,28 @@ public final class CasinoStats extends SavedData {
     /** Derniers numéros sortis, le plus récent en premier. */
     public java.util.List<Integer> recentDraws() { return new java.util.ArrayList<>(draws); }
 
+    // ------------------------------------------------------------------ jackpot progressif (commun à toutes les machines)
+    private static final String JACKPOT = "_jackpot";
+    /** Montant du jackpot en centimes ; -1 = jamais initialisé (prend le montant de départ). */
+    private long jackpot = -1;
+
+    public long jackpot(long start) { return jackpot < 0 ? start : jackpot; }
+
+    public void addJackpot(long cents, long start) {
+        jackpot = jackpot(start) + Math.max(0, cents);
+        setDirty();
+    }
+
+    public void resetJackpot(long start) {
+        jackpot = start;
+        setDirty();
+    }
+
     private static CasinoStats load(CompoundTag tag) {
         CasinoStats st = new CasinoStats();
+        if (tag.contains(JACKPOT)) st.jackpot = tag.getLong(JACKPOT);
         for (String k : tag.getAllKeys()) {
-            if (k.equals(DRAWS)) continue;
+            if (k.equals(DRAWS) || k.equals(JACKPOT)) continue;
             long[] a = tag.getLongArray(k);
             if (a.length == 3) st.games.put(k, a);
         }
@@ -53,6 +71,7 @@ public final class CasinoStats extends SavedData {
     public CompoundTag save(CompoundTag tag) {
         for (Map.Entry<String, long[]> e : games.entrySet()) tag.putLongArray(e.getKey(), e.getValue());
         tag.putIntArray(DRAWS, draws.stream().mapToInt(Integer::intValue).toArray());
+        tag.putLong(JACKPOT, jackpot);
         return tag;
     }
 }

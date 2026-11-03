@@ -1,0 +1,196 @@
+{
+ "variants": {
+  "facing=north,open=true,part=0": {
+   "model": "minenorthcasino:block/arene_coqs_p0",
+   "y": 0
+  },
+  "facing=north,open=false,part=0": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p0",
+   "y": 0
+  },
+  "facing=north,open=true,part=1": {
+   "model": "minenorthcasino:block/arene_coqs_p1",
+   "y": 0
+  },
+  "facing=north,open=false,part=1": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p1",
+   "y": 0
+  },
+  "facing=north,open=true,part=2": {
+   "model": "minenorthcasino:block/arene_coqs_p2",
+   "y": 0
+  },
+  "facing=north,open=false,part=2": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p2",
+   "y": 0
+  },
+  "facing=north,open=true,part=3": {
+   "model": "minenorthcasino:block/arene_coqs_p3",
+   "y": 0
+  },
+  "facing=north,open=false,part=3": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p3",
+   "y": 0
+  },
+  "facing=north,open=true,part=4": {
+   "model": "minenorthcasino:block/arene_coqs_p4",
+   "y": 0
+  },
+  "facing=north,open=false,part=4": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p4",
+   "y": 0
+  },
+  "facing=north,open=true,part=5": {
+   "model": "minenorthcasino:block/arene_coqs_p5",
+   "y": 0
+  },
+  "facing=north,open=false,part=5": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p5",
+   "y": 0
+  },
+  "facing=east,open=true,part=0": {
+   "model": "minenorthcasino:block/arene_coqs_p0",
+   "y": 90
+  },
+  "facing=east,open=false,part=0": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p0",
+   "y": 90
+  },
+  "facing=east,open=true,part=1": {
+   "model": "minenorthcasino:block/arene_coqs_p1",
+   "y": 90
+  },
+  "facing=east,open=false,part=1": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p1",
+   "y": 90
+  },
+  "facing=east,open=true,part=2": {
+   "model": "minenorthcasino:block/arene_coqs_p2",
+   "y": 90
+  },
+  "facing=east,open=false,part=2": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p2",
+   "y": 90
+  },
+  "facing=east,open=true,part=3": {
+   "model": "minenorthcasino:block/arene_coqs_p3",
+   "y": 90
+  },
+  "facing=east,open=false,part=3": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p3",
+   "y": 90
+  },
+  "facing=east,open=true,part=4": {
+   "model": "minenorthcasino:block/arene_coqs_p4",
+   "y": 90
+  },
+  "facing=east,open=false,part=4": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p4",
+   "y": 90
+  },
+  "facing=east,open=true,part=5": {
+   "model": "minenorthcasino:block/arene_coqs_p5",
+   "y": 90
+  },
+  "facing=east,open=false,part=5": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p5",
+   "y": 90
+  },
+  "facing=south,open=true,part=0": {
+   "model": "minenorthcasino:block/arene_coqs_p0",
+   "y": 180
+  },
+  "facing=south,open=false,part=0": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p0",
+   "y": 180
+  },
+  "facing=south,open=true,part=1": {
+   "model": "minenorthcasino:block/arene_coqs_p1",
+   "y": 180
+  },
+  "facing=south,open=false,part=1": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p1",
+   "y": 180
+  },
+  "facing=south,open=true,part=2": {
+   "model": "minenorthcasino:block/arene_coqs_p2",
+   "y": 180
+  },
+  "facing=south,open=false,part=2": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p2",
+   "y": 180
+  },
+  "facing=south,open=true,part=3": {
+   "model": "minenorthcasino:block/arene_coqs_p3",
+   "y": 180
+  },
+  "facing=south,open=false,part=3": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p3",
+   "y": 180
+  },
+  "facing=south,open=true,part=4": {
+   "model": "minenorthcasino:block/arene_coqs_p4",
+   "y": 180
+  },
+  "facing=south,open=false,part=4": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p4",
+   "y": 180
+  },
+  "facing=south,open=true,part=5": {
+   "model": "minenorthcasino:block/arene_coqs_p5",
+   "y": 180
+  },
+  "facing=south,open=false,part=5": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p5",
+   "y": 180
+  },
+  "facing=west,open=true,part=0": {
+   "model": "minenorthcasino:block/arene_coqs_p0",
+   "y": 270
+  },
+  "facing=west,open=false,part=0": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p0",
+   "y": 270
+  },
+  "facing=west,open=true,part=1": {
+   "model": "minenorthcasino:block/arene_coqs_p1",
+   "y": 270
+  },
+  "facing=west,open=false,part=1": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p1",
+   "y": 270
+  },
+  "facing=west,open=true,part=2": {
+   "model": "minenorthcasino:block/arene_coqs_p2",
+   "y": 270
+  },
+  "facing=west,open=false,part=2": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p2",
+   "y": 270
+  },
+  "facing=west,open=true,part=3": {
+   "model": "minenorthcasino:block/arene_coqs_p3",
+   "y": 270
+  },
+  "facing=west,open=false,part=3": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p3",
+   "y": 270
+  },
+  "facing=west,open=true,part=4": {
+   "model": "minenorthcasino:block/arene_coqs_p4",
+   "y": 270
+  },
+  "facing=west,open=false,part=4": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p4",
+   "y": 270
+  },
+  "facing=west,open=true,part=5": {
+   "model": "minenorthcasino:block/arene_coqs_p5",
+   "y": 270
+  },
+  "facing=west,open=false,part=5": {
+   "model": "minenorthcasino:block/arene_coqs_fermee_p5",
+   "y": 270
+  }
+ }
+}

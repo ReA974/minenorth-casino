@@ -13,6 +13,8 @@ public final class ClientHandler {
             case 0 -> mc.setScreen(new SlotScreen(p));
             case 1 -> mc.setScreen(new RouletteScreen(p));
             case 3 -> mc.setScreen(new CashierScreen(p));
+            case 4 -> mc.setScreen(new PokerScreen(p));
+            case 5 -> mc.setScreen(new CockfightScreen(p));
             default -> mc.setScreen(new BlackjackScreen(p));
         }
     }
@@ -35,6 +37,18 @@ public final class ClientHandler {
 
     public static void rouletteResult(ModNetwork.RouletteResultPacket p) {
         if (Minecraft.getInstance().screen instanceof RouletteScreen s) s.result(p);
+    }
+
+    public static void jackpot(long cents) {
+        if (Minecraft.getInstance().screen instanceof SlotScreen s) s.jackpot(cents);
+    }
+
+    public static void poker(ModNetwork.PokerStatePacket p) {
+        if (Minecraft.getInstance().screen instanceof PokerScreen s) s.state(p);
+    }
+
+    public static void cock(ModNetwork.CockStatePacket p) {
+        if (Minecraft.getInstance().screen instanceof CockfightScreen s) s.state(p);
     }
 
     public static void bjState(ModNetwork.BjStatePacket p) {

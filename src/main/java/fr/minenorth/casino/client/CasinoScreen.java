@@ -73,7 +73,7 @@ public abstract class CasinoScreen extends Screen {
             long c = info.chips().get(i);
             int cx = x + i * 46;
             boolean sel = c == chip;
-            if (sel) g.fill(cx - 1, y - 1, cx + 43, y + 15, CasinoStyle.GOLD);
+            if (sel) CasinoStyle.round(g, cx - 2, y - 2, 46, 18, 8, CasinoStyle.GOLD);
             CasinoStyle.button(g, cx, y, 42, 14, CasinoStyle.euros(c), sel ? CasinoStyle.HOVER : CasinoStyle.DARK_BTN,
                     mx >= cx && mx < cx + 42 && my >= y && my < y + 14, true);
         }

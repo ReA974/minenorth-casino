@@ -57,6 +57,11 @@ public class SlotScreen extends CasinoScreen {
         net.minecraft.client.Minecraft.getInstance().getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(e, pitch, volume));
     }
 
+    /** Jackpot progressif commun à toutes les machines (0 = désactivé). */
+    private long jackpot;
+
+    public void jackpot(long cents) { jackpot = cents; }
+
     public void result(ModNetwork.SlotResultPacket p) {
         finalReels = new int[]{p.a(), p.b(), p.c()};
         waiting = false;
@@ -108,8 +113,8 @@ public class SlotScreen extends CasinoScreen {
         for (int i = 0; i < 3; i++) {
             int x = left + 20 + i * 62, y = top + 54;
             boolean stopped = finalReels != null && ticks >= STOP_AT[i];
-            g.fill(x - 2, y - 2, x + 56, y + 62, stopped ? CasinoStyle.GOLD : CasinoStyle.FRAME);
-            g.fill(x, y, x + 54, y + 60, CasinoStyle.LIST);
+            CasinoStyle.round(g, x - 2, y - 2, 58, 64, 8, stopped ? CasinoStyle.GOLD : CasinoStyle.FRAME);
+            CasinoStyle.roundGradient(g, x, y, 54, 60, 7, 0xFFFDFBFF, 0xFFD9D2E6);
             if (!symbols.isEmpty()) CasinoStyle.item(g, symbols.get(Math.min(shown[i], symbols.size() - 1)), x + 3, y + 6, 3f);
         }
         // Table des gains
@@ -129,6 +134,15 @@ public class SlotScreen extends CasinoScreen {
                 g.drawString(font, "x" + fmt(info.x2().get(i)), px + 46, y, CasinoStyle.MUTED, false);
                 y += 11;
             }
+        }
+        if (jackpot > 0) {
+            // bandeau du jackpot, qui clignote doucement
+            float pulse = (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 250.0));
+            String jt = "JACKPOT  " + CasinoStyle.euros(jackpot);
+            int jw = font.width(jt) + 24, jx = left + 20 + (182 - jw) / 2;
+            CasinoStyle.round(g, jx - 1, top + 40, jw + 2, 12, 6, CasinoStyle.mix(CasinoStyle.PINK, CasinoStyle.ORANGE, pulse));
+            CasinoStyle.round(g, jx, top + 41, jw, 10, 5, CasinoStyle.FRAME);
+            CasinoStyle.centered(g, jt, jx + jw / 2, top + 42, CasinoStyle.GOLD);
         }
         g.drawString(font, "Mise", left + 20, top + 122, CasinoStyle.MUTED, false);
         g.drawString(font, CasinoStyle.euros(chip), left + 50, top + 122, CasinoStyle.WHITE, false);

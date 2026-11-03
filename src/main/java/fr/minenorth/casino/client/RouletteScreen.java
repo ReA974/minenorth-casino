@@ -240,12 +240,11 @@ public class RouletteScreen extends CasinoScreen {
     /** Derniers numéros : le plus récent en haut à gauche (entouré d'or), puis de gauche à droite et de haut en bas. */
     private void historyPanel(GuiGraphics g) {
         int px = left + w + 6, py = top;
-        g.fill(px - 3, py - 3, px + PANEL_W + 3, py + h + 3, CasinoStyle.FRAME);
-        g.fill(px, py, px + PANEL_W, py + h, CasinoStyle.PANEL);
-        g.fill(px, py, px + 4, py + 38, CasinoStyle.GOLD);
+        CasinoStyle.card(g, px, py, PANEL_W, h);
+        CasinoStyle.hGradient(g, px + 8, py + 38, PANEL_W - 16, 2, CasinoStyle.PINK, CasinoStyle.ORANGE);
         CasinoStyle.scaled(g, CasinoStyle.bold("Tirages"), px + 10, py + 8, 1.2f, CasinoStyle.WHITE);
         g.drawString(font, "Derniers numéros", px + 10, py + 25, CasinoStyle.MUTED, false);
-        g.fill(px + 8, py + 40, px + PANEL_W - 8, py + 41, CasinoStyle.HOVER);
+
         if (history.isEmpty()) {
             g.drawString(font, "Aucun tirage", px + 10, py + 50, CasinoStyle.MUTED, false);
             return;

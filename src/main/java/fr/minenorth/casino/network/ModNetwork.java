@@ -29,7 +29,7 @@ import java.util.function.Supplier;
 public final class ModNetwork {
     private ModNetwork() {}
 
-    private static final String PROTOCOL = "3";
+    private static final String PROTOCOL = "4";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(MineNorthCasino.MOD_ID, "network"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
     private static int id = 0;
@@ -49,6 +49,11 @@ public final class ModNetwork {
         CHANNEL.registerMessage(id++, ChipsPacket.class, ChipsPacket::encode, ChipsPacket::decode, ChipsPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(id++, HistoryPacket.class, HistoryPacket::encode, HistoryPacket::decode, HistoryPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(id++, CashierActionPacket.class, CashierActionPacket::encode, CashierActionPacket::decode, CashierActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(id++, PokerActionPacket.class, PokerActionPacket::encode, PokerActionPacket::decode, PokerActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(id++, PokerStatePacket.class, PokerStatePacket::encode, PokerStatePacket::decode, PokerStatePacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(id++, CockActionPacket.class, CockActionPacket::encode, CockActionPacket::decode, CockActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(id++, CockStatePacket.class, CockStatePacket::encode, CockStatePacket::decode, CockStatePacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(id++, JackpotPacket.class, JackpotPacket::encode, JackpotPacket::decode, JackpotPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
 
     public static void send(ServerPlayer p, Object packet) { CHANNEL.send(PacketDistributor.PLAYER.with(() -> p), packet); }
@@ -74,8 +79,9 @@ public final class ModNetwork {
     // ------------------------------------------------------------------ serveur → client
 
     /**
-     * Ouverture d'un jeu. {@code game} : 0 machine à sous, 1 roulette, 2 blackjack. Les listes ne servent qu'au jeu concerné
-     * (symboles et gains de la machine, gains de la roulette, gain du blackjack).
+     * Ouverture d'un jeu. {@code game} : 0 machine à sous, 1 roulette, 2 blackjack, 3 caisse, 4 poker, 5 combats de coqs. Les listes ne
+     * servent qu'au jeu concerné (symboles et gains de la machine, gains de la roulette, gain du blackjack). Poker et coqs :
+     * {@code bjGain} porte la commission en %.
      */
     public record OpenPacket(int game, String company, long min, long max, List<Long> chips,
                              List<String> items, List<Float> x3, List<Float> x2, List<Integer> gains, float bjGain, boolean soft17) {
@@ -155,7 +161,117 @@ public final class ModNetwork {
         static void handle(ChipsPacket p, Supplier<NetworkEvent.Context> c) { toClient(c, () -> ClientHandler.held(p.held)); }
     }
 
+    /** Jackpot progressif actuel (centimes), affiché sur l'écran de la machine à sous. */
+    public record JackpotPacket(long cents) {
+        static void encode(JackpotPacket p, FriendlyByteBuf b) { b.writeVarLong(p.cents); }
+        static JackpotPacket decode(FriendlyByteBuf b) { return new JackpotPacket(b.readVarLong()); }
+        static void handle(JackpotPacket p, Supplier<NetworkEvent.Context> c) { toClient(c, () -> ClientHandler.jackpot(p.cents)); }
+    }
+
+    /**
+     * État d'une table de poker, préparé pour UN joueur : ses cartes, celles des autres seulement au showdown (-1 = dos de carte,
+     * -2 = pas de carte). {@code phase} : ordinal de {@link fr.minenorth.casino.game.PokerTable.Phase}.
+     */
+    public record PokerStatePacket(int phase, int hand, int button, int toAct, int mySeat, long pot, long currentBet, long toCall,
+                                   long minRaiseTo, long maxRaiseTo, int seconds, List<Integer> board, String message, long sb, long bb,
+                                   List<SeatView> seats) {
+        /** {@code flags} : 1 dans la main, 2 couché, 4 tapis, 8 part, 16 gagnant. */
+        public record SeatView(boolean present, String name, long stack, long bet, String last, int flags, int c1, int c2, String hand, long won) {
+            public static final SeatView EMPTY = new SeatView(false, "", 0, 0, "", 0, -2, -2, "", 0);
+        }
+
+        static void encode(PokerStatePacket p, FriendlyByteBuf b) {
+            b.writeVarInt(p.phase); b.writeVarInt(p.hand); b.writeVarInt(p.button + 1); b.writeVarInt(p.toAct + 1); b.writeVarInt(p.mySeat + 1);
+            b.writeVarLong(p.pot); b.writeVarLong(p.currentBet); b.writeVarLong(p.toCall); b.writeVarLong(p.minRaiseTo); b.writeVarLong(p.maxRaiseTo);
+            b.writeVarInt(p.seconds);
+            b.writeVarInt(p.board.size()); for (int c : p.board) b.writeVarInt(c);
+            b.writeUtf(p.message, 300); b.writeVarLong(p.sb); b.writeVarLong(p.bb);
+            b.writeVarInt(p.seats.size());
+            for (SeatView s : p.seats) {
+                b.writeBoolean(s.present);
+                if (!s.present) continue;
+                b.writeUtf(s.name, 64); b.writeVarLong(s.stack); b.writeVarLong(s.bet); b.writeUtf(s.last, 64); b.writeVarInt(s.flags);
+                b.writeVarInt(s.c1 + 2); b.writeVarInt(s.c2 + 2); b.writeUtf(s.hand, 32); b.writeVarLong(s.won);
+            }
+        }
+
+        static PokerStatePacket decode(FriendlyByteBuf b) {
+            int phase = b.readVarInt(), hand = b.readVarInt(), button = b.readVarInt() - 1, toAct = b.readVarInt() - 1, mine = b.readVarInt() - 1;
+            long pot = b.readVarLong(), cur = b.readVarLong(), call = b.readVarLong(), min = b.readVarLong(), max = b.readVarLong();
+            int sec = b.readVarInt();
+            List<Integer> board = readList(b, FriendlyByteBuf::readVarInt, 5);
+            String msg = b.readUtf(300);
+            long sb = b.readVarLong(), bb = b.readVarLong();
+            List<SeatView> seats = readList(b, x -> {
+                if (!x.readBoolean()) return SeatView.EMPTY;
+                return new SeatView(true, x.readUtf(64), x.readVarLong(), x.readVarLong(), x.readUtf(64), x.readVarInt(),
+                        x.readVarInt() - 2, x.readVarInt() - 2, x.readUtf(32), x.readVarLong());
+            }, 10);
+            return new PokerStatePacket(phase, hand, button, toAct, mine, pot, cur, call, min, max, sec, board, msg, sb, bb, seats);
+        }
+
+        static void handle(PokerStatePacket p, Supplier<NetworkEvent.Context> c) { toClient(c, () -> ClientHandler.poker(p)); }
+    }
+
+    /**
+     * État de l'arène de combats de coqs. {@code phase} : 0 en attente du premier pari, 1 paris, 2 combat, 3 fin. {@code seq} : numéro
+     * de l'échange qui vient d'avoir lieu (le client l'anime), -1 pour une simple mise à jour. {@code bets} : « R|B » + nom + « | » + centimes.
+     */
+    public record CockStatePacket(int phase, int seconds, String nameA, String nameB, int colorA, int colorB,
+                                  int forceA, int agiA, int staA, int forceB, int agiB, int staB, int hpMaxA, int hpMaxB, int hpA, int hpB,
+                                  long poolA, long poolB, float pA, int attacker, int damage, int seq, boolean crit, long mineA, long mineB,
+                                  int winner, String message, List<String> bets, long cash, boolean police, boolean organizer, long caisse) {
+        static void encode(CockStatePacket p, FriendlyByteBuf b) {
+            b.writeVarInt(p.phase); b.writeVarInt(p.seconds); b.writeUtf(p.nameA, 64); b.writeUtf(p.nameB, 64); b.writeInt(p.colorA); b.writeInt(p.colorB);
+            b.writeVarInt(p.forceA); b.writeVarInt(p.agiA); b.writeVarInt(p.staA); b.writeVarInt(p.forceB); b.writeVarInt(p.agiB); b.writeVarInt(p.staB);
+            b.writeVarInt(p.hpMaxA); b.writeVarInt(p.hpMaxB); b.writeVarInt(p.hpA); b.writeVarInt(p.hpB);
+            b.writeVarLong(p.poolA); b.writeVarLong(p.poolB); b.writeFloat(p.pA);
+            b.writeVarInt(p.attacker + 1); b.writeVarInt(p.damage + 1); b.writeVarInt(p.seq + 1); b.writeBoolean(p.crit);
+            b.writeVarLong(p.mineA); b.writeVarLong(p.mineB); b.writeVarInt(p.winner + 1); b.writeUtf(p.message, 200);
+            b.writeVarInt(p.bets.size()); for (String s : p.bets) b.writeUtf(s, 96);
+            b.writeVarLong(p.cash); b.writeBoolean(p.police); b.writeBoolean(p.organizer); b.writeVarLong(p.caisse);
+        }
+
+        static CockStatePacket decode(FriendlyByteBuf b) {
+            int phase = b.readVarInt(), sec = b.readVarInt();
+            String na = b.readUtf(64), nb = b.readUtf(64);
+            int ca = b.readInt(), cb = b.readInt();
+            int fa = b.readVarInt(), aa = b.readVarInt(), sa = b.readVarInt(), fb = b.readVarInt(), ab = b.readVarInt(), sb = b.readVarInt();
+            int ma = b.readVarInt(), mb = b.readVarInt(), ha = b.readVarInt(), hb = b.readVarInt();
+            long pa = b.readVarLong(), pb = b.readVarLong();
+            float pA = b.readFloat();
+            int att = b.readVarInt() - 1, dmg = b.readVarInt() - 1, seq = b.readVarInt() - 1;
+            boolean crit = b.readBoolean();
+            long mya = b.readVarLong(), myb = b.readVarLong();
+            int win = b.readVarInt() - 1;
+            String msg = b.readUtf(200);
+            List<String> bets = readList(b, x -> x.readUtf(96), MAX_LIST);
+            return new CockStatePacket(phase, sec, na, nb, ca, cb, fa, aa, sa, fb, ab, sb, ma, mb, ha, hb, pa, pb, pA, att, dmg, seq, crit, mya, myb,
+                    win, msg, bets, b.readVarLong(), b.readBoolean(), b.readBoolean(), b.readVarLong());
+        }
+
+        static void handle(CockStatePacket p, Supplier<NetworkEvent.Context> c) { toClient(c, () -> ClientHandler.cock(p)); }
+    }
+
     // ------------------------------------------------------------------ client → serveur
+
+    /** Poker : 0 couché, 1 check, 2 suivre, 3 relancer à {@code amount}, 4 tapis, 10 s'asseoir au siège {@code seat} avec {@code amount}, 11 se lever. */
+    public record PokerActionPacket(int action, int seat, long amount) {
+        static void encode(PokerActionPacket p, FriendlyByteBuf b) { b.writeVarInt(p.action); b.writeVarInt(p.seat); b.writeVarLong(p.amount); }
+        static PokerActionPacket decode(FriendlyByteBuf b) { return new PokerActionPacket(b.readVarInt(), b.readVarInt(), b.readVarLong()); }
+        static void handle(PokerActionPacket p, Supplier<NetworkEvent.Context> c) {
+            toServer(c, sp -> fr.minenorth.casino.PokerService.action(sp, p.action, p.seat, p.amount));
+        }
+    }
+
+    /** Combats de coqs : 0 parier {@code cents} sur le coq {@code side} (0 rouge, 1 bleu), 1 récupérer la caisse, 2 descente de police. */
+    public record CockActionPacket(int action, int side, long cents) {
+        static void encode(CockActionPacket p, FriendlyByteBuf b) { b.writeVarInt(p.action); b.writeVarInt(p.side); b.writeVarLong(p.cents); }
+        static CockActionPacket decode(FriendlyByteBuf b) { return new CockActionPacket(b.readVarInt(), b.readVarInt(), b.readVarLong()); }
+        static void handle(CockActionPacket p, Supplier<NetworkEvent.Context> c) {
+            toServer(c, sp -> fr.minenorth.casino.CockfightService.action(sp, p.action, p.side, p.cents));
+        }
+    }
 
     /** Caisse : 0 acheter {@code cents} de jetons, 1 racheter tous ses jetons. */
     public record CashierActionPacket(int action, long cents) {

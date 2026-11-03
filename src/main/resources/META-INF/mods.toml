@@ -7,7 +7,7 @@ modId="minenorthcasino"
 version="1.0.0"
 displayName="MineNorth Casino"
 authors="MineNorth RP"
-description='''Casino MineNorth RP : machine à sous, roulette et blackjack, reliés au compte d'une entreprise (config/minenorth_casino.json).'''
+description='''Casino MineNorth RP : machines à sous (jackpot progressif), roulette, blackjack et poker Texas Hold'em, reliés au compte d'une entreprise (config/minenorth_casino.json) ; combats de coqs clandestins avec paris en espèces.'''
 
 [[dependencies.minenorthcasino]]
 modId="forge"

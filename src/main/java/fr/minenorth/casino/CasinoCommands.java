@@ -38,6 +38,9 @@ public final class CasinoCommands {
             src.sendSuccess(() -> Component.literal("§6Casino : §f" + c.name() + " §7(entreprise n°" + c.id() + ") §6caisse : §f" + euros(cash)), false);
             double rtp = SlotGame.rtp(CasinoConfig.get().machine_a_sous.symboles) * 100;
             src.sendSuccess(() -> Component.literal(String.format("§7Machine à sous : retour joueur théorique %.1f %%", rtp)), false);
+            long jp = CasinoService.jackpot(src.getServer());
+            if (jp > 0) src.sendSuccess(() -> Component.literal("§7Jackpot progressif : §6" + euros(jp)), false);
+            for (String line : CockfightService.report(src.getServer())) src.sendSuccess(() -> Component.literal(line), false);
             Map<String, long[]> stats = CasinoStats.get(src.getServer()).all();
             if (stats.isEmpty()) src.sendSuccess(() -> Component.literal("§7Aucune partie jouée."), false);
             for (Map.Entry<String, long[]> en : stats.entrySet()) {

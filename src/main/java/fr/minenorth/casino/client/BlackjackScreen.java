@@ -12,9 +12,6 @@ import java.util.List;
 
 /** Blackjack contre le croupier : le serveur garde le sabot, l'écran affiche les cartes reçues (la carte cachée n'est jamais envoyée). */
 public class BlackjackScreen extends CasinoScreen {
-    private static final String[] RANK = {"A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"};
-    private static final String[] SUIT = {"♠", "♥", "♦", "♣"};
-
     private int phase;   // 0 aucune main, 1 en cours, 2 terminée
     private long bet, payout;
     private List<Integer> player = new ArrayList<>(), dealer = new ArrayList<>();
@@ -121,7 +118,8 @@ public class BlackjackScreen extends CasinoScreen {
         stand.enabled(!waiting);
         dbl.enabled(!waiting && canDouble);
         super.render(g, mx, my, pt);
-        g.fill(left + 10, top + 46, left + w - 10, top + 168, CasinoStyle.FELT);
+        CasinoStyle.round(g, left + 9, top + 46, w - 18, 123, 10, 0xFF3A2410);
+        CasinoStyle.roundGradient(g, left + 12, top + 49, w - 24, 117, 8, 0xFF138A60, CasinoStyle.FELT);
         g.drawString(font, "Croupier" + (dealerShown.isEmpty() ? "" : "  " + dealerTotal()), left + 16, top + 50, CasinoStyle.WHITE, false);
         drawHand(g, dealerShown, left + 16, top + 62);
         g.drawString(font, "Vous" + (player.isEmpty() ? "" : "  " + BlackjackGame.total(player)), left + 16, top + 112, CasinoStyle.WHITE, false);
@@ -150,22 +148,7 @@ public class BlackjackScreen extends CasinoScreen {
     }
 
     private void drawHand(GuiGraphics g, List<Integer> hand, int x, int y) {
-        for (int i = 0; i < hand.size(); i++) {
-            int cx = x + i * 34;
-            int c = hand.get(i);
-            g.fill(cx - 1, y - 1, cx + 31, y + 43, CasinoStyle.FRAME);
-            if (c < 0) {
-                g.fill(cx, y, cx + 30, y + 42, 0xFF22308A);
-                g.fill(cx + 4, y + 4, cx + 26, y + 38, 0xFF3A4CC0);
-                continue;
-            }
-            g.fill(cx, y, cx + 30, y + 42, 0xFFF4F4F4);
-            boolean red = c / 13 == 1 || c / 13 == 2;
-            int col = red ? 0xFFC8102E : 0xFF111111;
-            g.drawString(font, RANK[c % 13], cx + 3, y + 3, col, false);
-            g.drawString(font, SUIT[c / 13], cx + 3, y + 13, col, false);
-            CasinoStyle.scaled(g, net.minecraft.network.chat.Component.literal(SUIT[c / 13]), cx + 11, y + 20, 1.8f, col);
-        }
+        for (int i = 0; i < hand.size(); i++) CasinoStyle.playingCard(g, x + i * 34, y, hand.get(i), 1f, false);
     }
 
     @Override

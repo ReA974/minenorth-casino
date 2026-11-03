@@ -41,11 +41,25 @@ public final class CasinoService {
 
     private static final SecureRandom RNG = new SecureRandom();
 
-    private record Session(Game game, ResourceKey<Level> dim, BlockPos pos) {}
+    record Session(Game game, ResourceKey<Level> dim, BlockPos pos) {}
 
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
     private static final Map<UUID, Long> LAST = new HashMap<>();
     private static final Map<UUID, BlackjackGame> HANDS = new HashMap<>();
+
+    static Session session(ServerPlayer sp) { return SESSIONS.get(sp.getUUID()); }
+
+    /** Joueurs connectés qui ont ouvert ce poste (même jeu, même bloc principal). */
+    static List<ServerPlayer> viewers(MinecraftServer s, Game game, ResourceKey<Level> dim, BlockPos pos) {
+        List<ServerPlayer> out = new ArrayList<>();
+        for (Map.Entry<UUID, Session> e : SESSIONS.entrySet()) {
+            Session v = e.getValue();
+            if (v.game() != game || v.dim() != dim || !v.pos().equals(pos)) continue;
+            ServerPlayer p = s.getPlayerList().getPlayer(e.getKey());
+            if (p != null) out.add(p);
+        }
+        return out;
+    }
 
     // ------------------------------------------------------------------ ouverture
 
@@ -111,6 +125,7 @@ public final class CasinoService {
                 pk = new ModNetwork.OpenPacket(1, c.name(), CasinoConfig.cents(r.mise_min_euros), CasinoConfig.cents(r.mise_max_euros),
                         CasinoConfig.centsList(r.mises_rapides_euros), List.of(), List.of(), List.of(), gains, 0f, false);
             }
+            case POKER -> pk = PokerService.openPacket(c);
             case CASHIER -> {
                 CasinoConfig.Caisse k = cfg.caisse;
                 pk = new ModNetwork.OpenPacket(3, c.name(), CasinoConfig.cents(k.achat_min_euros), CasinoConfig.cents(k.achat_max_euros),
@@ -123,9 +138,14 @@ public final class CasinoService {
                         (float) b.gain_blackjack, b.croupier_tire_soft17);
             }
         }
-        SESSIONS.put(sp.getUUID(), new Session(game, sp.level().dimension(), pos.immutable()));
+        // Tables à plusieurs places : la session retient le bloc principal (la même table quel que soit le morceau cliqué).
+        BlockState clicked = sp.level().getBlockState(pos);
+        BlockPos at = game == Game.POKER && clicked.getBlock() instanceof CasinoBlock cb ? cb.masterOf(pos, clicked) : pos;
+        SESSIONS.put(sp.getUUID(), new Session(game, sp.level().dimension(), at.immutable()));
         ModNetwork.send(sp, pk);
         sendHeld(sp);
+        if (game == Game.POKER) PokerService.opened(sp, at);
+        if (game == Game.SLOT) ModNetwork.send(sp, new ModNetwork.JackpotPacket(jackpot(sp.server)));
         if (game == Game.ROULETTE) ModNetwork.send(sp, new ModNetwork.HistoryPacket(CasinoStats.get(sp.server).recentDraws()));
         BlackjackGame g = HANDS.get(sp.getUUID());
         if (game == Game.BLACKJACK && g != null) sendBj(sp, g, "Main en cours.");
@@ -133,10 +153,10 @@ public final class CasinoService {
 
     // ------------------------------------------------------------------ vérifications communes
 
-    private static void reply(ServerPlayer p, boolean ok, String msg) { ModNetwork.send(p, new ModNetwork.MsgPacket(ok, msg)); }
+    static void reply(ServerPlayer p, boolean ok, String msg) { ModNetwork.send(p, new ModNetwork.MsgPacket(ok, msg)); }
 
     /** Casino utilisable pour ce joueur et ce jeu : session ouverte, bloc proche et toujours là, entreprise active. */
-    private static Casino guard(ServerPlayer sp, Game game) {
+    static Casino guard(ServerPlayer sp, Game game) {
         Session s = SESSIONS.get(sp.getUUID());
         if (s == null || s.game() != game) { reply(sp, false, "Aucun jeu ouvert."); return null; }
         int d = CasinoConfig.get().distance_max_blocs;
@@ -173,7 +193,7 @@ public final class CasinoService {
     }
 
     /** Retire la mise en jetons (monnaie rendue). Faux si le joueur n'en a pas assez : rien n'est débité. */
-    private static boolean takeChips(ServerPlayer sp, long cents) {
+    static boolean takeChips(ServerPlayer sp, long cents) {
         if (!Chips.take(sp, cents)) { reply(sp, false, "Pas assez de jetons : achetez-en à la caisse."); return false; }
         sendHeld(sp);
         return true;
@@ -219,7 +239,7 @@ public final class CasinoService {
         }
     }
 
-    private static String euros(long cents) { return (cents / 100) + " €"; }
+    static String euros(long cents) { return (cents / 100) + " €"; }
 
     private static boolean houseCovers(ServerPlayer sp, Casino c, long needed) {
         if (needed <= 0) return true;
@@ -237,18 +257,59 @@ public final class CasinoService {
         long min = CasinoConfig.cents(cfg.mise_min_euros), max = maxFor(sp, CasinoConfig.cents(cfg.mise_max_euros), onVipMachine(sp));
         if (bet < min || bet > max) { reply(sp, false, "Mise invalide."); return; }
         if (!wholeEuros(sp, bet) || !cooldown(sp)) return;
-        long need = (long) Math.ceil(bet * Math.max(0, SlotGame.maxMultiplier(cfg.symboles) - 1));
+        CasinoConfig.Jackpot jc = CasinoConfig.get().jackpot;
+        CasinoStats stats = CasinoStats.get(sp.server);
+        long need = (long) Math.ceil(bet * Math.max(0, SlotGame.maxMultiplier(cfg.symboles) - 1)) + (jc.actif ? jackpot(sp.server) : 0);
         if (!houseCovers(sp, c, need)) return;
         if (!takeChips(sp, bet)) return;
         int[] reels = SlotGame.spin(RNG, cfg.symboles);
         long win = Math.round(bet * SlotGame.multiplier(reels, cfg.symboles));
+        // Jackpot progressif : une part de la mise l'alimente ; trois symboles les plus rares (le dernier de la liste) le remportent.
+        long jackpotWon = 0;
+        if (jc.actif) {
+            int top = cfg.symboles.size() - 1;
+            if (reels[0] == top && reels[1] == top && reels[2] == top) {
+                jackpotWon = jackpot(sp.server) / 100 * 100;
+                stats.resetJackpot(CasinoConfig.cents(jc.montant_depart_euros));
+            } else {
+                stats.addJackpot(Math.round(bet * jc.part_des_mises_pourcent / 100.0), CasinoConfig.cents(jc.montant_depart_euros));
+            }
+            win += jackpotWon;
+        }
         long paid = win;
-        if (win > 0 && !payChips(sp, c, win, "Casino : gain machine à sous")) {
+        if (win > 0 && !payChips(sp, c, win, jackpotWon > 0 ? "Casino : JACKPOT" : "Casino : gain machine à sous")) {
             paid = 0;
             reply(sp, false, "Gain non versé : prévenez un responsable du casino.");
         }
-        CasinoStats.get(sp.server).add("machine_a_sous", bet, paid);
+        stats.add("machine_a_sous", bet, paid);
         ModNetwork.send(sp, new ModNetwork.SlotResultPacket(reels[0], reels[1], reels[2], bet, paid));
+        if (paid > 0) announce(sp, paid, jackpotWon > 0 ? "le JACKPOT" : "à la machine à sous");
+        if (jc.actif) {
+            ModNetwork.JackpotPacket jp = new ModNetwork.JackpotPacket(jackpot(sp.server));
+            for (Map.Entry<UUID, Session> e : SESSIONS.entrySet()) {
+                if (e.getValue().game() != Game.SLOT) continue;
+                ServerPlayer other = sp.server.getPlayerList().getPlayer(e.getKey());
+                if (other != null) ModNetwork.send(other, jp);
+            }
+        }
+    }
+
+    /** Montant actuel du jackpot (centimes), 0 si désactivé. */
+    static long jackpot(MinecraftServer s) {
+        CasinoConfig.Jackpot jc = CasinoConfig.get().jackpot;
+        return jc.actif ? CasinoStats.get(s).jackpot(CasinoConfig.cents(jc.montant_depart_euros)) : 0;
+    }
+
+    /** Gros gain : annoncé aux joueurs proches (la salle du casino), avec un son de fête pour le gagnant. */
+    static void announce(ServerPlayer sp, long cents, String where) {
+        CasinoConfig.Jackpot jc = CasinoConfig.get().jackpot;
+        if (cents < CasinoConfig.cents(jc.annonce_gros_gain_euros)) return;
+        double r = jc.rayon_annonce_blocs;
+        Component msg = Component.literal("§6§l★ CASINO §r§e" + fr.minenorth.api.MineNorth.displayName(sp) + " remporte §6§l" + euros(cents)
+                + "§r§e " + where + " !");
+        for (ServerPlayer p : sp.server.getPlayerList().getPlayers())
+            if (p.level() == sp.level() && p.distanceToSqr(sp) <= r * r) p.sendSystemMessage(msg);
+        sp.level().playSound(null, sp.blockPosition(), net.minecraft.sounds.SoundEvents.PLAYER_LEVELUP, net.minecraft.sounds.SoundSource.PLAYERS, 1f, 1f);
     }
 
     // ------------------------------------------------------------------ roulette
@@ -279,6 +340,7 @@ public final class CasinoService {
         stats.add("roulette", total, paid);
         stats.addDraw(n);
         ModNetwork.send(sp, new ModNetwork.RouletteResultPacket(n, total, paid));
+        if (paid > total) announce(sp, paid, "à la roulette");
         // Tous ceux qui ont une table de roulette ouverte voient l'historique à jour (le joueur qui vient de tirer l'affiche après son animation).
         ModNetwork.HistoryPacket hist = new ModNetwork.HistoryPacket(stats.recentDraws());
         for (Map.Entry<UUID, Session> e : SESSIONS.entrySet()) {
@@ -348,6 +410,7 @@ public final class CasinoService {
         if (!ok) paid = 0;
         CasinoStats.get(s).add("blackjack", g.bet, paid);
         if (sp != null) {
+            if (ok && paid > g.bet) announce(sp, paid, "au blackjack");
             sendBj(sp, g, ok ? g.outcome : "Gain non versé : prévenez un responsable du casino.");
         }
     }
