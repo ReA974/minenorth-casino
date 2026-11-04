@@ -378,8 +378,16 @@ def chip_stack(x, z, y, colors, size=1.6):
 
 
 # ---------------------------------------------------------------- ecriture des modeles / etats
+def clamp_elements(elements):
+    """Minecraft refuse TOUT le modele (damier noir et violet) si un element sort de -16..32 : on borne chaque coordonnee."""
+    for e in elements:
+        e["from"] = [max(-16, min(32, v)) for v in e["from"]]
+        e["to"] = [max(-16, min(32, v)) for v in e["to"]]
+    return elements
+
+
 def write_model(name, textures, elements, folder=MODELS, extra=None):
-    m = {"parent": "minecraft:block/block", "textures": dict(textures), "elements": elements}
+    m = {"parent": "minecraft:block/block", "textures": dict(textures), "elements": clamp_elements(elements)}
     if extra:
         m.update(extra)
     os.makedirs(folder, exist_ok=True)
@@ -611,7 +619,7 @@ def upgrade_table(kind):
     extra = whole(boxes)
     if kind == "roulette":
         extra.append({"from": [21.5, 14, 6], "to": [25.5, 18, 10], "faces": {n: face("#spindle", [0, 0, 16, 16]) for n in FACES6}})
-    m["elements"] = bases["%s_item" % kind] + extra
+    m["elements"] = clamp_elements(bases["%s_item" % kind] + extra)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(m, f, indent=1, ensure_ascii=False)
 
