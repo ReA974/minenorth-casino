@@ -452,7 +452,9 @@ public final class CasinoService {
 
     @SubscribeEvent
     public static void onBreak(BlockEvent.BreakEvent e) {
-        if (!(e.getState().getBlock() instanceof CasinoBlock) || !CasinoConfig.get().pose_op_seulement) return;
+        // les arènes de combats ont leurs propres règles (organisateur) : CockfightService
+        if (!(e.getState().getBlock() instanceof CasinoBlock) || e.getState().getBlock() instanceof fr.minenorth.casino.block.ArenaBlock
+                || !CasinoConfig.get().pose_op_seulement) return;
         if (!e.getPlayer().hasPermissions(2)) {
             e.setCanceled(true);
             e.getPlayer().displayClientMessage(Component.literal("§cSeul un OP peut retirer ce poste de jeu."), true);
@@ -461,7 +463,8 @@ public final class CasinoService {
 
     @SubscribeEvent
     public static void onPlace(BlockEvent.EntityPlaceEvent e) {
-        if (!(e.getPlacedBlock().getBlock() instanceof CasinoBlock) || !CasinoConfig.get().pose_op_seulement) return;
+        if (!(e.getPlacedBlock().getBlock() instanceof CasinoBlock) || e.getPlacedBlock().getBlock() instanceof fr.minenorth.casino.block.ArenaBlock
+                || !CasinoConfig.get().pose_op_seulement) return;
         if (e.getEntity() instanceof ServerPlayer sp && !sp.hasPermissions(2)) {
             e.setCanceled(true);
             sp.displayClientMessage(Component.literal("§cSeul un OP peut poser ce poste de jeu."), true);

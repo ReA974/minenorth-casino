@@ -59,6 +59,8 @@ for _n, _c in [
     ("chip_p", 0x7B2CBF), ("cream", 0xF3E7C9), ("card_back", 0xB0206E), ("money", 0x5E9E5A), ("yellow", 0xF5C400),
     ("lamp", 0xFFB347), ("rope", 0xB89A6A), ("chip_r", 0xC8283C), ("chip_g", 0x1E9E52), ("neon_pink", 0xFF5CC8),
     ("neon_cyan", 0x6CF2FF),
+    # grande arene des animaux (ajoutees a la fin : les UV des cases existantes ne bougent pas)
+    ("rust", 0x8A4B2A), ("concrete", 0x8C8A84), ("tire", 0x1C1C1E), ("hazard", 0xF2B705),
 ]:
     cell(_n, _c)
 
@@ -694,6 +696,101 @@ def arena():
     loot("arene_coqs")
 
 
+# ---------------------------------------------------------------- grande arene des animaux (ouverte / fermee)
+BIG_W, BIG_D = 112, 96   # 7 x 6 blocs
+
+
+def big_open_boxes():
+    """Fosse en tole rouillee sur dalle de beton : on y fait combattre les animaux des joueurs (chiens, chats...)."""
+    B = []
+    cx, cz = 56, 48
+    B.append(tb(0, 0, 0, BIG_W, 0.5, BIG_D, "concrete", skip=("down",)))
+    # muret de beton, tole rouillee par-dessus, chapeau metallique, poteaux tout autour
+    B += ring(cx, cz, 52, 44, 49, 41, 0.5, 3, "concrete", step=4.0, n=3.2)
+    B += ring(cx, cz, 51.2, 43.2, 49.8, 41.8, 3, 9, "iron", step=4.0, n=3.2)
+    B += ring(cx, cz, 51.2, 43.2, 49.8, 41.8, 9, 13, "rust", step=4.0, n=3.2)
+    B += ring(cx, cz, 51.6, 43.6, 49.4, 41.4, 13, 13.8, "metal_dk", step=4.0, n=3.2)
+    for (x, z) in ((5, 47.3), (105.6, 47.3), (14, 10), (36, 5.2), (56, 4.6), (75, 5.2), (97, 10), (14, 84.6), (36, 89.4), (56, 90),
+                   (75, 89.4), (97, 84.6)):
+        B.append(tb(x, 0.5, z, x + 1.4, 16, z + 1.4, "metal_dk"))
+    # bande jaune et noire de danger sur le muret, devant
+    for k in range(10):
+        x = 22 + k * 7
+        B.append(tb(x, 1.2, 3.5, x + 3.5, 2.6, 4.2, "hazard" if k % 2 == 0 else "black", skip=("down", "up", "back")))
+    # sol de sable, taches, lignes de depart des deux combattants
+    B += stadium(cx, cz, 49, 41, 0.5, 1.2, "sand", step=4.0, n=3.2)
+    for (x, z, w, d) in ((40, 34, 5, 4), (66, 56, 4, 5), (52, 62, 3, 3), (72, 36, 4, 2.4), (30, 52, 3.5, 3.5), (58, 28, 2.4, 2.4)):
+        B.append(tb(x, 1.2, z, x + w, 1.26, z + d, "sand_dk", skip=("down",)))
+    B += ring(cx, cz, 16, 12, 15.2, 11.2, 1.2, 1.28, "sand_dk", step=1.6, n=2.0)
+    B.append(tb(31, 1.2, 45, 33, 1.3, 51, "white", skip=("down",)))
+    B.append(tb(79, 1.2, 45, 81, 1.3, 51, "white", skip=("down",)))
+    # piles de pneus aux angles, palettes et caisses, bidons
+    for (x, z, n) in ((1, 1, 3), (104, 1, 2), (1, 87, 2), (104, 87, 4)):
+        for k in range(n):
+            B.append(tb(x + 0.4 * (k % 2), 0.5 + k * 2, z + 0.4 * (k % 2), x + 7 - 0.4 * (k % 2), 2.5 + k * 2, z + 7 - 0.4 * (k % 2), "tire"))
+            B.append(tb(x + 2.5, 2.5 + k * 2, z + 2.5, x + 4.5, 2.52 + k * 2, z + 4.5, "black", skip=("down",)))
+    for x in (12, 26, 72, 86):
+        B.append(tb(x, 0.5, 0.4, x + 10, 1.5, 3.6, "crate_dk"))      # palettes-gradins devant
+        B.append(tb(x + 0.5, 1.5, 0.6, x + 9.5, 4.5, 3.4, "straw"))
+    B.append(tb(0.4, 0.5, 30, 4.4, 8, 38, "crate"))
+    B.append(tb(0.6, 8, 30.4, 4.2, 8.2, 37.6, "crate_dk"))
+    B.append(tb(107.4, 0.5, 58, 111.4, 7, 62, "iron"))
+    B.append(tb(107.6, 7, 58.2, 111.2, 7.4, 61.8, "rust"))
+    B.append(tb(107.4, 0.5, 64, 111.4, 7, 68, "iron"))
+    # table du bookmaker avec la cagnotte, billets poses sur le muret
+    B.append(tb(100, 0.5, 14, 110, 7, 22, "crate"))
+    B.append(tb(100.3, 7, 14.3, 109.7, 7.2, 21.7, "crate_dk"))
+    B.append(tb(102.5, 7.2, 16, 107, 8.8, 20, "iron"))
+    B.append(tb(102.7, 8.8, 16.2, 106.8, 9, 19.8, "money"))
+    for (x, z) in ((44, 4.6), (64, 4.5), (52, 91), (5.4, 40)):
+        B.append(tb(x, 13.8, z, x + 2.8, 13.95, z + 1.4, "money", skip=("down",)))
+    # deux mats de projecteurs au fond, projecteurs allumes, cable tendu avec ampoules au-dessus de la fosse
+    for x in (1.2, 109.4):
+        B.append(tb(x, 0.5, 92, x + 1.6, 30, 93.6, "metal_dk"))
+    B.append(tb(2.8, 28, 92.2, 10, 29, 93.4, "metal_dk"))
+    B.append(tb(102, 28, 92.2, 109.4, 29, 93.4, "metal_dk"))
+    for lx in (7, 100):
+        B.append(tb(lx, 24.6, 91.4, lx + 5, 28, 94, "black", skip=("front",)))
+        B.append(tb(lx + 0.4, 25, 91.2, lx + 4.6, 27.6, 91.4, "lamp", glow=True, skip=("back",)))
+    B.append(tb(10, 28.2, 92.7, 102, 28.4, 92.9, "rope"))
+    for k in range(16):
+        x = 13 + k * 5.6
+        B.append(tb(x, 27.2, 92.5, x + 0.9, 28.2, 93.1, "lamp", glow=True))
+    return B
+
+
+def big_closed_boxes():
+    B = []
+    B.append(tb(0, 0, 0, BIG_W, 0.5, BIG_D, "concrete", skip=("down",)))
+    # chantier a l'abandon : enorme tas bache, pneus, caisses, bidons
+    B.append(tb(16, 0.5, 16, 94, 11, 78, "tarp", skip=("down",)))
+    B.append(tb(22, 11, 22, 72, 15, 66, "tarp_dk", skip=("down",)))
+    B.append(tb(15.6, 0.5, 15.6, 94.4, 1.2, 78.4, "tarp_dk", skip=("down", "up")))
+    for z in (28, 47, 66):
+        B.append(tb(15.8, 0.5, z, 94.2, 11.2, z + 0.4, "rope", skip=("down",)))
+    for (x, y, z, sz) in ((1, 0.5, 2, 8), (1.5, 8.5, 2.5, 7), (100, 0.5, 84, 9), (101, 0.5, 3, 7), (2, 0.5, 82, 7), (100, 0.5, 44, 7)):
+        B.append(tb(x, y, z, x + sz, y + sz, z + sz, "crate"))
+        B.append(tb(x + 0.4, y + sz, z + 0.4, x + sz - 0.4, y + sz + 0.2, z + sz - 0.4, "crate_dk", skip=("down",)))
+    for k in range(3):
+        B.append(tb(1 + 0.4 * (k % 2), 0.5 + k * 2, 40 + 0.4 * (k % 2), 8 - 0.4 * (k % 2), 2.5 + k * 2, 47 - 0.4 * (k % 2), "tire"))
+    B.append(tb(100, 0.5, 22, 104, 8, 26, "iron"))
+    B.append(tb(100.2, 8, 22.2, 103.8, 8.4, 25.8, "rust"))
+    B.append(tb(105, 0.5, 23, 109, 8, 27, "iron"))
+    return B
+
+
+def big_arena():
+    t = {"atlas": NS + "casino_atlas", "particle": NS + "casino_atlas"}
+    op, cl = big_open_boxes(), big_closed_boxes()
+    for p, els in split(op, cols=7, rows=6).items():
+        write_model("arene_animaux_p%d" % p, t, els)
+    for p, els in split(cl, cols=7, rows=6).items():
+        write_model("arene_animaux_fermee_p%d" % p, t, els)
+    write_model("arene_animaux", t, whole(op, width=BIG_W, depth=BIG_D, k=0.3), folder=ITEMS, extra={"display": TABLE_DISPLAY})
+    multipart_state("arene_animaux", None, ("open", {True: "arene_animaux", False: "arene_animaux_fermee"}), parts=42)
+    loot("arene_animaux")
+
+
 # ---------------------------------------------------------------- jetons en relief
 CHIP_EDGE = {1: "chip_w", 5: "chip_r", 25: "chip_g", 100: "chip_k", 500: "chip_p"}
 
@@ -776,6 +873,8 @@ def previews():
         shot(merged(prefix), name, 200, 32, (-8, 8, 16), 9.0)
     for prefix, name in (("arene_coqs", "apercu-arene-coqs.png"), ("arene_coqs_fermee", "apercu-arene-fermee.png")):
         shot(merged(prefix, rows=4, cols=5), name, 200, 32, (-24, 8, 32), 5.6)
+    for prefix, name in (("arene_animaux", "apercu-arene-animaux.png"), ("arene_animaux_fermee", "apercu-arene-animaux-fermee.png")):
+        shot(merged(prefix, rows=6, cols=7), name, 200, 32, (-40, 8, 48), 4.0)
     disp = json.load(open(os.path.join(MODELS, "caisse_casino.json"), encoding="utf-8"))
     shot(disp, "apercu-distributeur-jetons.png", 205, 18, (8, 8, 8), 26.0)
     chips_model = {"textures": {}, "elements": []}
@@ -815,6 +914,7 @@ if __name__ == "__main__":
     upgrade_table("blackjack")
     upgrade_table("roulette")
     arena()
+    big_arena()
     chips()
     previews()
     print("ok")

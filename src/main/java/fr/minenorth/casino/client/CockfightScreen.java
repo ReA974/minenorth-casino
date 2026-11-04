@@ -2,7 +2,8 @@ package fr.minenorth.casino.client;
 
 import com.mojang.math.Axis;
 import fr.minenorth.casino.network.ModNetwork;
-import fr.minenorth.casino.network.ModNetwork.CockStatePacket;
+import fr.minenorth.casino.network.ModNetwork.ArenaStatePacket;
+import fr.minenorth.casino.network.ModNetwork.ArenaStatePacket.FighterView;
 import fr.minenorth.casino.network.ModNetwork.OpenPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -17,126 +18,130 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * Arène clandestine : deux combattants (coqs de la maison ou animaux de joueurs), leurs qualités, les cotes du pari mutuel et le combat animé.
- * Onglets : Paris, Mon animal (inscription, entraînement), Organisation (organisateur : ouverture, lancement, commission, bénéficiaire).
+ * Arène clandestine. Onglets :
+ *  - Combat : l'arène animée, les deux coins (cliquer un coin pour choisir son camp), la mise (jetons rapides ou montant libre) ;
+ *    l'organisateur y ouvre les paris (durée au choix), lance ou annule le combat ;
+ *  - Combattants : poulailler (arène des coqs) ou animaux inscrits (grande arène) ; l'organisateur place qui il veut dans chaque coin ;
+ *  - Mon animal (grande arène) : inscription et entraînement de son animal ;
+ *  - Organisation (organisateur) : arène ouverte / bâchée, commission, commissions touchées.
  * Tout est décidé et revérifié par le serveur ; l'écran rejoue chaque échange qu'il reçoit.
  */
 public class CockfightScreen extends CasinoScreen {
     private static final int RED_SIDE = 0xFFE0335A, BLUE_SIDE = 0xFF3D7BFF;
+    private static final int TAB_COMBAT = 0, TAB_ROSTER = 1, TAB_PET = 2, TAB_ORG = 3;
 
-    private CockStatePacket st;
+    private ArenaStatePacket st;
+    private int tab;
+    /** Camp choisi pour parier (0 rouge, 1 bleu, -1 aucun). */
+    private int betSide = -1;
     private int lastSeq = -1;
-    /** Animation de l'échange en cours : ticks écoulés, attaquant, coup critique. */
     private int animTicks = 99, animAttacker = -1;
     private boolean animCrit;
     private int ticks;
     private final List<float[]> feathers = new ArrayList<>();   // x, y, vx, vy, vie
     private final Random rnd = new Random();
-    /** Points de vie affichés (ils descendent en douceur). */
     private float shownA = -1, shownB = -1;
-    private CasinoButton betRed, betBlue, raid, collect;
-    private ModNetwork.CockExtraPacket ex;
-    /** 0 paris, 1 mon animal, 2 organisation. */
-    private int tab;
-    private final List<CasinoButton> tabButtons = new ArrayList<>(), petButtons = new ArrayList<>(), orgButtons = new ArrayList<>();
-    private CasinoButton register, trainF, trainA, trainS, openBtn, manualBtn, startBtn, comMinus, comPlus, benefBtn, designate;
-    private EditBox playerBox;
 
-    public CockfightScreen(OpenPacket info) { super(info, "Arène clandestine", 380, 330); }
+    private final List<CasinoButton> tabs = new ArrayList<>();
+    private CasinoButton betBtn, raid, chooseBtn, startBtn, clearBtn, rerollBtn, clearPicks, register, toggleOpen, comMinus, comPlus;
+    private final List<CasinoButton> durBtns = new ArrayList<>(), trainBtns = new ArrayList<>();
+    private EditBox amount;
+    private String typed = "";
 
-    private int arenaCx() { return left + w / 2; }
+    public CockfightScreen(OpenPacket info) { super(info, "Arène clandestine", 440, 330); }
 
-    private int arenaCy() { return top + 98; }
+    private int cx() { return left + w / 2; }
+
+    private int cy() { return top + 106; }
+
+    private boolean owner() { return st != null && st.owner(); }
 
     @Override
     protected void init() {
         super.init();
-        int y = top + h - 28;
-        betRed = add(new CasinoButton(left + 12, y, 172, 20, "Parier sur ROUGE", RED_SIDE, () -> bet(0)));
-        betBlue = add(new CasinoButton(left + w - 184, y, 172, 20, "Parier sur BLEU", BLUE_SIDE, () -> bet(1)));
-        raid = add(new CasinoButton(left + 12, y, w - 24, 20, "🚨 DÉMANTELER L'ARÈNE (saisir les paris)", 0xFF1F4FD1,
-                () -> ModNetwork.CHANNEL.sendToServer(new ModNetwork.CockActionPacket(2, 0, 0))));
-        collect = add(new CasinoButton(left + w - 150, top + 24, 138, 13, "Récupérer la caisse", 0xFFB08A20,
-                () -> ModNetwork.CHANNEL.sendToServer(new ModNetwork.CockActionPacket(1, 0, 0))));
-        tabButtons.clear(); petButtons.clear(); orgButtons.clear();
-        String[] names = {"Paris", "Mon animal", "Organisation"};
-        for (int i = 0; i < 3; i++) {
+        tabs.clear(); durBtns.clear(); trainBtns.clear();
+        String[] names = {"Combat", "Combattants", "Mon animal", "Organisation"};
+        for (int i = 0; i < 4; i++) {
             final int idx = i;
-            tabButtons.add(add(new CasinoButton(left + 12 + i * 72, top + 24, 68, 13, names[i], CasinoStyle.PINK, () -> { tab = idx; status = ""; })));
+            tabs.add(add(new CasinoButton(left + 12 + i * 94, top + 44, 90, 14, names[i], CasinoStyle.PINK, () -> { tab = idx; status = ""; })));
         }
-        int py = top + 214;
-        register = pet(new CasinoButton(left + 12, top + h - 28, w - 24, 20, "Inscrire mon animal au prochain combat", 0xFF2E9E5A,
-                () -> action(ex != null && ex.mySide() >= 0 ? 4 : 3, 0)));
-        trainF = pet(new CasinoButton(left + w - 132, py, 120, 16, "Entraîner", CasinoStyle.PINK, () -> action(5, 0)));
-        trainA = pet(new CasinoButton(left + w - 132, py + 20, 120, 16, "Entraîner", CasinoStyle.PINK, () -> action(5, 1)));
-        trainS = pet(new CasinoButton(left + w - 132, py + 40, 120, 16, "Entraîner", CasinoStyle.PINK, () -> action(5, 2)));
-        int ox = left + 12, ow = (w - 30) / 2;
-        openBtn = org(new CasinoButton(ox, top + 156, ow, 18, "Arène", 0xFF2E9E5A, () -> setting(0, 0, "")));
-        manualBtn = org(new CasinoButton(ox + ow + 6, top + 156, ow, 18, "Lancement", 0xFF3D7BFF, () -> setting(1, 0, "")));
-        startBtn = org(new CasinoButton(ox, top + 180, w - 24, 18, "▶ Lancer le combat maintenant", CasinoStyle.ORANGE, () -> setting(5, 0, "")));
-        comMinus = org(new CasinoButton(ox + 150, top + 206, 22, 16, "−", 0xFF4A3C8C, () -> commission(-1)));
-        comPlus = org(new CasinoButton(ox + 220, top + 206, 22, 16, "+", 0xFF4A3C8C, () -> commission(1)));
-        benefBtn = org(new CasinoButton(ox + 150, top + 228, w - 174, 16, "Bénéficiaire", 0xFFB08A20,
-                () -> setting(2, ex == null ? 0 : (ex.beneficiary() + 1) % 4, "")));
-        playerBox = new EditBox(font, ox + 150, top + 252, 110, 14, Component.literal("Pseudo"));
-        playerBox.setMaxLength(16);
-        playerBox.setHint(Component.literal("Pseudo du joueur"));
-        addRenderableWidget(playerBox);
-        designate = org(new CasinoButton(ox + 266, top + 251, w - 290, 16, "Désigner", 0xFFB08A20, () -> setting(4, 0, playerBox.getValue())));
-    }
-
-    private CasinoButton pet(CasinoButton b) { petButtons.add(b); return add(b); }
-
-    private CasinoButton org(CasinoButton b) { orgButtons.add(b); return add(b); }
-
-    private void action(int action, int side) {
-        status = "";
-        ModNetwork.CHANNEL.sendToServer(new ModNetwork.CockActionPacket(action, side, 0));
-    }
-
-    private void setting(int kind, int value, String text) {
-        status = "";
-        ModNetwork.CHANNEL.sendToServer(new ModNetwork.CockSettingPacket(kind, value, text == null ? "" : text));
-    }
-
-    /** Commission : pas de 1 %, envoyée en dixièmes de %. */
-    private void commission(int delta) {
-        if (ex == null) return;
-        float v = Math.max(0, Math.min(ex.commissionMax(), Math.round(ex.commission()) + delta));
-        setting(3, Math.round(v * 10), "");
-    }
-
-    public void extra(ModNetwork.CockExtraPacket p) {
-        ex = p;
-        if (!p.organizer() && tab == 2) tab = 0;
+        int by = top + h - 28, half = (w - 30) / 2;
+        // onglet Combat
+        betBtn = add(new CasinoButton(left + 12, by, half, 20, "Miser", CasinoStyle.GREEN, this::bet));
+        raid = add(new CasinoButton(left + 12, by, w - 24, 20, "🚨 DÉMANTELER L'ARÈNE (saisir les paris)", 0xFF1F4FD1, () -> send(1, 0, 0)));
+        int ox = left + 18 + half;
+        chooseBtn = add(new CasinoButton(ox, by, half, 20, "Choisir les combattants", CasinoStyle.ORANGE, () -> tab = TAB_ROSTER));
+        startBtn = add(new CasinoButton(ox, by, half - 74, 20, "▶ Lancer le combat", CasinoStyle.ORANGE, () -> send(12, 0, 0)));
+        clearBtn = add(new CasinoButton(ox + half - 70, by, 70, 20, "Annuler", CasinoStyle.RED, () -> send(13, 0, 0)));
+        amount = new EditBox(font, left + w - 82, top + 263, 70, 16, Component.literal("Montant"));
+        amount.setMaxLength(6);
+        amount.setFilter(s -> s.matches("\\d*"));
+        amount.setHint(Component.literal("Montant €"));
+        amount.setValue(typed);
+        amount.setResponder(v -> typed = v);
+        addRenderableWidget(amount);
+        // onglet Combattants
+        clearPicks = add(new CasinoButton(left + 12, by, half, 20, "Vider les deux coins", CasinoStyle.RED, () -> send(13, 0, 0)));
+        rerollBtn = add(new CasinoButton(ox, by, half, 20, "Nouveaux coqs au poulailler", CasinoStyle.DARK_BTN, () -> send(16, 0, 0)));
+        // onglet Mon animal
+        register = add(new CasinoButton(left + 12, by, w - 24, 20, "Inscrire mon animal", CasinoStyle.GREEN, () -> send(st.pet().registered() ? 3 : 2, 0, 0)));
+        for (int i = 0; i < 3; i++) {
+            final int stat = i;
+            trainBtns.add(add(new CasinoButton(left + w - 150, top + 150 + i * 24, 132, 18, "Entraîner", CasinoStyle.PINK, () -> send(4, stat, 0))));
+        }
+        // onglet Organisation
+        toggleOpen = add(new CasinoButton(left + 24, top + 94, w - 48, 20, "Arène", CasinoStyle.GREEN, () -> send(14, 0, 0)));
+        comMinus = add(new CasinoButton(left + 200, top + 130, 24, 18, "−", CasinoStyle.DARK_BTN, () -> commission(-1)));
+        comPlus = add(new CasinoButton(left + 286, top + 130, 24, 18, "+", CasinoStyle.DARK_BTN, () -> commission(1)));
     }
 
     private CasinoButton add(CasinoButton b) { addRenderableWidget(b); return b; }
 
-    private void bet(int side) {
+    private void send(int action, int a, long b) {
         status = "";
-        ModNetwork.CHANNEL.sendToServer(new ModNetwork.CockActionPacket(0, side, chip));
+        ModNetwork.CHANNEL.sendToServer(new ModNetwork.ArenaActionPacket(action, a, b));
     }
 
-    public void state(CockStatePacket p) {
+    private void commission(int delta) {
+        if (st == null) return;
+        float v = Math.max(0, Math.min(st.commissionMax(), Math.round(st.commission()) + delta));
+        send(15, Math.round(v * 10), 0);
+    }
+
+    /** Mise choisie (centimes) : le montant tapé, sinon le jeton sélectionné. */
+    private long stake() {
+        try { if (!typed.isBlank()) return Long.parseLong(typed.trim()) * 100; } catch (NumberFormatException ignored) {}
+        return chip;
+    }
+
+    private void bet() {
+        if (betSide < 0) { message(false, "Cliquez d'abord sur le coin rouge ou le coin bleu."); return; }
+        send(0, betSide, stake());
+    }
+
+    public void state(ArenaStatePacket p) {
         if (p.seq() >= 0 && p.seq() != lastSeq && p.attacker() >= 0) {
             lastSeq = p.seq();
             animTicks = 0;
             animAttacker = p.attacker();
             animCrit = p.crit();
             if (p.damage() > 0) {
-                int dx = arenaCx() + (p.attacker() == 0 ? 34 : -34), dy = arenaCy() - 4;
+                int dx = cx() + (p.attacker() == 0 ? 34 : -34), dy = cy() - 4;
                 for (int k = 0; k < (p.crit() ? 14 : 6); k++)
                     feathers.add(new float[]{dx, dy, (rnd.nextFloat() - 0.5f) * 3f, -rnd.nextFloat() * 2.5f, 20 + rnd.nextInt(15)});
             }
         }
-        if (st != null && st.phase() != 3 && p.phase() == 3) {
+        if (st != null && st.phase() != 4 && p.phase() == 4 && st.mineA() + st.mineB() > 0) {
             boolean won = (p.winner() == 0 && p.mineA() > 0) || (p.winner() == 1 && p.mineB() > 0);
-            if (st.mineA() + st.mineB() > 0) sound(won ? SoundEvents.PLAYER_LEVELUP : SoundEvents.VILLAGER_NO, 1f);
+            sound(won ? SoundEvents.PLAYER_LEVELUP : SoundEvents.VILLAGER_NO, 1f);
         }
-        if (st == null || p.phase() == 0 || p.phase() == 1) { shownA = p.hpA(); shownB = p.hpB(); }
+        if (st != null && st.phase() != 2 && p.phase() == 2) sound(SoundEvents.NOTE_BLOCK_BELL.value(), 1.4f);
+        if (st == null || p.phase() <= 2) { shownA = p.hpA(); shownB = p.hpB(); }
+        if (p.mineA() > 0) betSide = 0; else if (p.mineB() > 0) betSide = 1; else if (p.phase() <= 1) betSide = -1;
         st = p;
-        held = -1;   // ici on parie en espèces : l'en-tête « Jetons » n'a pas lieu d'être
+        held = -1;   // ici on parie en espèces : pas d'en-tête « Jetons »
+        if (!p.owner() && tab == TAB_ORG) tab = TAB_COMBAT;
+        if (!p.animals() && tab == TAB_PET) tab = TAB_COMBAT;
     }
 
     private static void sound(net.minecraft.sounds.SoundEvent e, float pitch) {
@@ -161,200 +166,304 @@ public class CockfightScreen extends CasinoScreen {
         }
     }
 
+    // ------------------------------------------------------------------ rendu
+
     @Override
     public void render(GuiGraphics g, int mx, int my, float pt) {
-        boolean open = st != null && (st.phase() == 0 || st.phase() == 1);
-        boolean cop = st != null && st.police();
-        boolean org = ex != null && ex.organizer();
-        tabButtons.get(2).visible = org;
-        for (int i = 0; i < 3; i++) tabButtons.get(i).selected(tab == i);
-        boolean betTab = tab == 0;
-        betRed.visible = betBlue.visible = !cop && betTab;
-        raid.visible = cop && betTab;
-        for (CasinoButton b : petButtons) b.visible = tab == 1 && ex != null && !ex.petName().isEmpty();
-        for (CasinoButton b : orgButtons) b.visible = tab == 2 && org;
-        playerBox.visible = tab == 2 && org;
-        if (ex != null) updateButtons(st != null && st.phase() == 0);
-        betRed.enabled(open && (st.mineB() == 0));
-        betBlue.enabled(open && (st.mineA() == 0));
-        raid.enabled(st != null && st.nameA() != null);
-        collect.visible = st != null && st.organizer();
-        collect.enabled(st != null && st.caisse() > 0);
-        if (st != null && st.organizer()) collect.setMessage(Component.literal("Prendre la caisse : " + CasinoStyle.euros(st.caisse())));
+        layoutWidgets();
         super.render(g, mx, my, pt);
-        if (st != null) {
-            String cash = "Espèces : " + CasinoStyle.euros(st.cash());
-            g.drawString(font, cash, left + w - 14 - font.width(cash), top + 14, CasinoStyle.GOLD, false);
-        }
-        drawArena(g, pt);
-        if (tab == 1) { drawPetPanel(g); return; }
-        if (tab == 2 && ex != null && ex.organizer()) { drawOrgPanel(g); return; }
-        if (st == null || st.nameA().isEmpty()) {
-            CasinoStyle.centered(g, st == null ? "…" : fit(st.message(), w - 30), arenaCx(), arenaCy() + 70, CasinoStyle.MUTED);
-            return;
-        }
-        drawSide(g, 0, left + 12, top + 152);
-        drawSide(g, 1, left + w / 2 + 4, top + 152);
-        // déroulé / message
-        int my2 = top + 208;
-        CasinoStyle.round(g, left + 12, my2, w - 24, 14, 7, 0x99000000);
-        CasinoStyle.centered(g, fit(st.message(), w - 36), arenaCx(), my2 + 3, CasinoStyle.TEXT);
-        // parieurs
-        int by = top + 226;
-        for (int i = 0; i < st.bets().size() && i < 4; i++) {
-            String row = st.bets().get(i);
-            int bar = row.lastIndexOf('|');
-            if (bar < 1) continue;
-            boolean red = row.charAt(0) == 'R';
-            long c = parse(row.substring(bar + 1));
-            String line = fit(row.substring(1, bar), 110) + "  " + CasinoStyle.euros(c);
-            int x = left + 14 + (i % 2) * (w / 2 - 4), y = by + (i / 2) * 10;
-            CasinoStyle.disc(g, x + 3, y + 4, 3, red ? RED_SIDE : BLUE_SIDE);
-            g.drawString(font, line, x + 9, y, CasinoStyle.MUTED, false);
-        }
-        drawStatus(g, top + h - 66);
-        if (!cop) {
-            g.drawString(font, "Mise :", left + 12, top + h - 46, CasinoStyle.MUTED, false);
-            chipRow(g, left + 48, top + h - 49, mx, my);
-        } else {
-            CasinoStyle.centered(g, "Vous êtes en service : vous pouvez démanteler l'arène.", arenaCx(), top + h - 44, CasinoStyle.CYAN);
+        if (st == null) { CasinoStyle.centered(g, "…", cx(), cy(), CasinoStyle.MUTED); return; }
+        String cash = "Espèces : " + CasinoStyle.euros(st.cash());
+        g.drawString(font, cash, left + w - 14 - font.width(cash), top + 14, CasinoStyle.GOLD, false);
+        String org = st.owner() ? "Vous organisez cette arène" : "Organisée par " + (st.ownerName().isEmpty() ? "la maison" : st.ownerName());
+        g.drawString(font, fit(org, 200), left + w - 14 - Math.min(200, font.width(org)), top + 26, st.owner() ? CasinoStyle.PINK : CasinoStyle.MUTED, false);
+        switch (tab) {
+            case TAB_ROSTER -> drawRoster(g, mx, my);
+            case TAB_PET -> drawPet(g);
+            case TAB_ORG -> drawOrg(g);
+            default -> drawCombat(g, mx, my, pt);
         }
     }
 
-    private void updateButtons(boolean idle) {
-        boolean mine = ex.mySide() >= 0;
-        register.setMessage(Component.literal(mine ? "Retirer mon animal du combat" : "Inscrire " + ex.petName() + " au prochain combat"));
-        register.enabled(idle && (mine || ex.restWait() == 0));
-        int[] v = {ex.petForce(), ex.petAgi(), ex.petSta()};
-        CasinoButton[] tb = {trainF, trainA, trainS};
-        for (int i = 0; i < 3; i++) {
-            boolean max = v[i] >= ex.statMax();
-            tb[i].setMessage(Component.literal(max ? "Au maximum" : "+1 · " + CasinoStyle.euros(ex.trainUnitCents() * Math.max(1, v[i]))));
-            tb[i].enabled(!max && ex.trainWait() == 0 && !mine);
-        }
-        openBtn.setMessage(Component.literal(ex.open() ? "Arène OUVERTE (fermer)" : "Arène FERMÉE (ouvrir)"));
-        manualBtn.setMessage(Component.literal(ex.manual() ? "Lancement : À LA MAIN" : "Lancement : AUTO"));
-        startBtn.enabled(ex.open() && st != null && (st.phase() == 0 || st.phase() == 1));
-        benefBtn.setMessage(Component.literal(fit(ex.beneficiaryLabel(), w - 190)));
-    }
-
-    private static String mmss(int sec) { return sec >= 60 ? (sec / 60) + " min" : sec + " s"; }
-
-    /** Onglet « Mon animal » : animal le plus proche, palmarès, qualités et entraînement. */
-    private void drawPetPanel(GuiGraphics g) {
-        int x = left + 12, y = top + 152, ww = w - 24;
-        CasinoStyle.roundGradient(g, x, y, ww, 150, 10, 0xFF2A1C4A, 0xFF1A1033);
-        if (ex == null || ex.petName().isEmpty()) {
-            CasinoStyle.centered(g, "Amenez votre animal apprivoisé tout près de vous", arenaCx(), y + 50, CasinoStyle.TEXT);
-            CasinoStyle.centered(g, "(chien, chat, animal Polly Pets…) pour l'inscrire ou l'entraîner.", arenaCx(), y + 64, CasinoStyle.MUTED);
-            drawStatus(g, top + h - 26);
-            return;
-        }
-        g.drawString(font, fit(ex.petName() + " · " + ex.petSpecies(), ww - 20), x + 10, y + 8, CasinoStyle.WHITE, false);
-        String rec = ex.petWins() + " victoire(s) · " + ex.petLosses() + " défaite(s)";
-        g.drawString(font, rec, x + 10, y + 20, CasinoStyle.GOLD, false);
-        String[] lab = {"Force", "Agilité", "Endurance"};
-        int[] v = {ex.petForce(), ex.petAgi(), ex.petSta()};
-        for (int i = 0; i < 3; i++) {
-            int ry = top + 214 + i * 20 + 4;
-            g.drawString(font, lab[i], x + 10, ry, CasinoStyle.TEXT, false);
-            for (int k = 0; k < ex.statMax(); k++) CasinoStyle.round(g, x + 72 + k * 9, ry, 7, 8, 3, k < v[i] ? CasinoStyle.PINK : 0x44FFFFFF);
-        }
-        String info = ex.mySide() >= 0 ? "Inscrit côté " + (ex.mySide() == 0 ? "ROUGE" : "BLEU") + " : un double se bat, votre animal ne risque rien."
-                : ex.restWait() > 0 ? "Au repos encore " + mmss(ex.restWait()) + " après son dernier combat."
-                : ex.trainWait() > 0 ? "Prochain entraînement dans " + mmss(ex.trainWait()) + "."
-                : "Entraînez-le avant de l'inscrire : chaque séance ajoute +1.";
-        g.drawString(font, fit(info, ww - 20), x + 10, y + 36, CasinoStyle.MUTED, false);
-        drawStatus(g, top + h - 52);
-    }
-
-    /** Onglet « Organisation » : ouverture, lancement, commission et qui la touche. */
-    private void drawOrgPanel(GuiGraphics g) {
+    /** Visibilité et libellés des boutons selon l'onglet, la phase et le rôle. */
+    private void layoutWidgets() {
+        boolean ok = st != null;
+        boolean own = owner(), cop = ok && st.police(), animals = ok && st.animals();
+        int phase = ok ? st.phase() : 0;
+        tabs.get(TAB_PET).visible = animals;
+        tabs.get(TAB_ORG).visible = own;
+        // onglets resserrés : seulement ceux qui existent
         int x = left + 12;
-        CasinoStyle.roundGradient(g, x, top + 150, w - 24, 124, 10, 0xFF2A1C4A, 0xFF1A1033);
-        g.drawString(font, "Commission", x + 10, top + 210, CasinoStyle.TEXT, false);
-        String pct = String.format(java.util.Locale.ROOT, "%.0f %%", ex.commission());
-        CasinoStyle.centered(g, pct, x + 186 + 11, top + 210, CasinoStyle.GOLD);
-        g.drawString(font, "des mises perdantes", x + 250, top + 210, CasinoStyle.MUTED, false);
-        g.drawString(font, "Elle va à", x + 10, top + 232, CasinoStyle.TEXT, false);
-        g.drawString(font, "Joueur désigné", x + 10, top + 255, CasinoStyle.TEXT, false);
-        CasinoStyle.centered(g, fit(ex.manual() ? "Les paris restent ouverts jusqu'à ce que vous lanciez le combat."
-                : "Le combat part à la fin du compte à rebours (ou tout de suite avec le bouton).", w - 30), arenaCx(), top + 280, CasinoStyle.MUTED);
-        drawStatus(g, top + h - 30);
+        for (int i = 0; i < 4; i++) {
+            CasinoButton t = tabs.get(i);
+            t.selected(tab == i);
+            if (t.visible) { t.setX(x); x += 94; }
+        }
+        boolean combat = tab == TAB_COMBAT, roster = tab == TAB_ROSTER, pet = tab == TAB_PET, orgTab = tab == TAB_ORG;
+        int half = (w - 30) / 2;
+        betBtn.visible = combat && ok && !cop;
+        betBtn.setWidth(own ? half : w - 24);
+        amount.visible = combat && ok && !cop;
+        raid.visible = combat && cop;
+        chooseBtn.visible = combat && own && phase == 0;
+        startBtn.visible = clearBtn.visible = combat && own && phase == 2;
+        for (CasinoButton b : durBtns) b.visible = combat && own && phase == 1;
+        if (combat && own && phase == 1 && durBtns.isEmpty() && !st.durations().isEmpty()) {
+            // boutons « Paris 30 s » « 60 s »… créés à la première réception (la liste vient de la config du serveur)
+            int n = st.durations().size(), bw = (half - (n - 1) * 4) / n, bx = left + 18 + half;
+            for (int i = 0; i < n; i++) {
+                int secs = st.durations().get(i);
+                durBtns.add(add(new CasinoButton(bx + i * (bw + 4), top + h - 28, bw, 20, (i == 0 ? "Paris " : "") + secs + " s", CasinoStyle.ORANGE,
+                        () -> send(11, secs, 0))));
+            }
+        }
+        if (ok) {
+            betBtn.enabled(phase == 2 && betSide >= 0);
+            String who = betSide == 0 ? st.a().name() : betSide == 1 ? st.b().name() : "";
+            betBtn.setMessage(Component.literal(phase != 2 ? (phase == 3 ? "Combat en cours" : "Paris fermés")
+                    : betSide < 0 ? "Choisissez un coin" : fit("Miser " + CasinoStyle.euros(stake()) + " sur " + who, (own ? half : w - 24) - 10)));
+        }
+        clearPicks.visible = roster && own && (phase == 0 || phase == 1);
+        rerollBtn.visible = roster && own && !animals && (phase == 0 || phase == 1);
+        register.visible = pet && ok && st.pet().present();
+        for (CasinoButton b : trainBtns) b.visible = pet && ok && st.pet().present();
+        if (pet && ok && st.pet().present()) {
+            var p = st.pet();
+            register.setMessage(Component.literal(p.registered() ? "Retirer " + p.name() + " de l'arène" : "Inscrire " + p.name() + " à l'arène"));
+            int[] v = {p.force(), p.agility(), p.stamina()};
+            for (int i = 0; i < 3; i++) {
+                boolean max = v[i] >= p.statMax();
+                trainBtns.get(i).setMessage(Component.literal(max ? "Au maximum" : "+1 · " + CasinoStyle.euros(p.trainUnit() * Math.max(1, v[i]))));
+                trainBtns.get(i).enabled(!max && p.trainWait() == 0);
+            }
+        }
+        toggleOpen.visible = comMinus.visible = comPlus.visible = orgTab && own;
+        if (orgTab && ok) toggleOpen.setMessage(Component.literal(st.open() ? "Arène OUVERTE · cliquer pour la bâcher" : "Arène BÂCHÉE · cliquer pour l'ouvrir"));
+    }
+
+    // ------------------------------------------------------------------ onglet Combat
+
+    private void drawCombat(GuiGraphics g, int mx, int my, float pt) {
+        drawArena(g, pt);
+        boolean ready = !st.a().name().isEmpty();
+        if (!ready) {
+            CasinoStyle.card(g, left + 12, top + 156, w - 24, 46);
+            CasinoStyle.centered(g, st.owner() ? "Choisissez vos deux combattants (onglet Combattants)."
+                    : "L'organisateur choisit les combattants du prochain combat…", cx(), top + 166, CasinoStyle.TEXT);
+            CasinoStyle.centered(g, fit(st.message(), w - 40), cx(), top + 182, CasinoStyle.MUTED);
+        } else {
+            corner(g, 0, left + 12, top + 152, mx, my);
+            corner(g, 1, left + w / 2 + 3, top + 152, mx, my);
+            CasinoStyle.round(g, left + 12, top + 214, w - 24, 14, 7, 0x99000000);
+            CasinoStyle.centered(g, fit(st.message(), w - 36), cx(), top + 217, CasinoStyle.TEXT);
+            for (int i = 0; i < st.bets().size() && i < 4; i++) {
+                String row = st.bets().get(i);
+                int bar = row.lastIndexOf('|');
+                if (bar < 1) continue;
+                int x = left + 14 + (i % 2) * (w / 2 - 4), y = top + 232 + (i / 2) * 10;
+                CasinoStyle.disc(g, x + 3, y + 4, 3, row.charAt(0) == 'R' ? RED_SIDE : BLUE_SIDE);
+                g.drawString(font, fit(row.substring(1, bar), 130) + "  " + CasinoStyle.euros(parse(row.substring(bar + 1))), x + 9, y, CasinoStyle.MUTED, false);
+            }
+        }
+        if (st.police()) {
+            CasinoStyle.centered(g, "Vous êtes en service : vous pouvez démanteler l'arène.", cx(), top + 266, CasinoStyle.CYAN);
+        } else {
+            g.drawString(font, "Mise :", left + 12, top + 267, CasinoStyle.MUTED, false);
+            chipRow(g, left + 46, top + 264, mx, my);
+        }
+        drawStatus(g, top + h - 48);
+    }
+
+    /** Un coin du ring : fiche du combattant, cote, mises ; cliquer dessus le choisit pour parier. */
+    private void corner(GuiGraphics g, int side, int x, int y, int mx, int my) {
+        int ww = w / 2 - 15, hh = 56;
+        FighterView f = side == 0 ? st.a() : st.b();
+        int col = side == 0 ? RED_SIDE : BLUE_SIDE;
+        boolean win = st.phase() == 4 && st.winner() == side;
+        boolean sel = betSide == side;
+        boolean hov = st.phase() == 2 && mx >= x && mx < x + ww && my >= y && my < y + hh;
+        if (win) CasinoStyle.round(g, x - 3, y - 3, ww + 6, hh + 6, 11, CasinoStyle.GOLD);
+        else if (sel) CasinoStyle.round(g, x - 2, y - 2, ww + 4, hh + 4, 10, col);
+        CasinoStyle.roundGradient(g, x, y, ww, hh, 9, CasinoStyle.mix(col, 0xFF1A1033, hov ? 0.35f : 0.55f), 0xFF1A1033);
+        CasinoStyle.round(g, x + 6, y + 5, 36, 10, 5, col);
+        CasinoStyle.centered(g, side == 0 ? "ROUGE" : "BLEU", x + 24, y + 6, CasinoStyle.WHITE);
+        g.drawString(font, fit(f.name(), ww - 100), x + 46, y + 6, CasinoStyle.WHITE, false);
+        String od = String.format(java.util.Locale.ROOT, "cote x%.2f", odds(side));
+        g.drawString(font, od, x + ww - 6 - font.width(od), y + 6, CasinoStyle.GOLD, false);
+        stat(g, x + 6, y + 19, "FOR", f.force(), col);
+        stat(g, x + 6 + (ww - 12) / 3, y + 19, "AGI", f.agility(), col);
+        stat(g, x + 6 + 2 * (ww - 12) / 3, y + 19, "END", f.stamina(), col);
+        long pool = side == 0 ? st.poolA() : st.poolB(), mine = side == 0 ? st.mineA() : st.mineB();
+        g.drawString(font, fit("Misé " + CasinoStyle.euros(pool) + (mine > 0 ? " · vous " + CasinoStyle.euros(mine) : ""), ww - 10), x + 6, y + 31,
+                mine > 0 ? CasinoStyle.OK : CasinoStyle.MUTED, false);
+        String who = f.owner().isEmpty() ? f.desc() + (f.wins() + f.losses() > 0 ? " · " + f.wins() + " V / " + f.losses() + " D" : "")
+                : f.desc() + " de " + f.owner();
+        g.drawString(font, fit(who, ww - 10), x + 6, y + 43, f.owner().isEmpty() ? CasinoStyle.MUTED : CasinoStyle.CYAN, false);
     }
 
     private static long parse(String s) { try { return Long.parseLong(s); } catch (NumberFormatException e) { return 0; } }
 
     /** Cote du pari mutuel pour un euro misé sur {@code side} (mise comprise) ; avant tout pari, la cote théorique. */
     private double odds(int side) {
-        double c = (ex != null ? ex.commission() : info.bjGain()) / 100.0;
+        double c = st.commission() / 100.0;
         long mine = side == 0 ? st.poolA() : st.poolB(), other = side == 0 ? st.poolB() : st.poolA();
         if (mine > 0) return 1 + other * (1 - c) / mine;
-        double p = side == 0 ? st.pA() : 1 - st.pA();
+        double p = Math.max(0.05, Math.min(0.95, side == 0 ? st.pA() : 1 - st.pA()));
         return 1 + (1 - c) * (1 - p) / p;
-    }
-
-    private void drawSide(GuiGraphics g, int side, int x, int y) {
-        int ww = w / 2 - 16;
-        int col = side == 0 ? RED_SIDE : BLUE_SIDE;
-        boolean win = st.phase() == 3 && st.winner() == side;
-        if (win) CasinoStyle.round(g, x - 2, y - 2, ww + 4, 56, 9, CasinoStyle.GOLD);
-        CasinoStyle.roundGradient(g, x, y, ww, 52, 8, CasinoStyle.mix(col, 0xFF1A1033, 0.55f), 0xFF1A1033);
-        String owner = ex == null ? "" : side == 0 ? ex.ownerA() : ex.ownerB();
-        g.drawString(font, fit(owner.isEmpty() ? "Coq de la maison" : "Animal de " + owner, ww - 10), x + 6, y + 40, owner.isEmpty() ? CasinoStyle.MUTED : CasinoStyle.CYAN, false);
-        String name = side == 0 ? st.nameA() : st.nameB();
-        g.drawString(font, fit(name, ww - 50), x + 6, y + 4, CasinoStyle.WHITE, false);
-        String od = String.format(java.util.Locale.ROOT, "x%.2f", odds(side));
-        g.drawString(font, od, x + ww - 6 - font.width(od), y + 4, CasinoStyle.GOLD, false);
-        int f = side == 0 ? st.forceA() : st.forceB(), a = side == 0 ? st.agiA() : st.agiB(), s = side == 0 ? st.staA() : st.staB();
-        stat(g, x + 6, y + 15, "FOR", f, col);
-        stat(g, x + 6 + (ww - 12) / 3, y + 15, "AGI", a, col);
-        stat(g, x + 6 + 2 * (ww - 12) / 3, y + 15, "END", s, col);
-        long pool = side == 0 ? st.poolA() : st.poolB(), mine = side == 0 ? st.mineA() : st.mineB();
-        g.drawString(font, fit("Misé " + CasinoStyle.euros(pool) + (mine > 0 ? " · vous " + CasinoStyle.euros(mine) : ""), ww - 10), x + 6, y + 29,
-                mine > 0 ? CasinoStyle.OK : CasinoStyle.MUTED, false);
     }
 
     private void stat(GuiGraphics g, int x, int y, String label, int v, int col) {
         g.drawString(font, label, x, y, CasinoStyle.MUTED, false);
         int bx = x + font.width(label) + 3;
-        for (int i = 0; i < 9; i++) CasinoStyle.round(g, bx + i * 3, y + 1, 2, 6, 1, i < v ? col : 0x44FFFFFF);
+        for (int i = 0; i < 9; i++) CasinoStyle.round(g, bx + i * 4, y + 1, 3, 6, 1, i < v ? col : 0x44FFFFFF);
     }
 
-    // ------------------------------------------------------------------ arène et coqs
+    // ------------------------------------------------------------------ onglet Combattants
+
+    private static final int CARD_W = 204, CARD_H = 44;
+
+    private int[] cardPos(int i) { return new int[]{left + 12 + (i % 2) * (CARD_W + 8), top + 64 + (i / 2) * (CARD_H + 6)}; }
+
+    private void drawRoster(GuiGraphics g, int mx, int my) {
+        List<FighterView> r = st.roster();
+        if (r.isEmpty()) {
+            CasinoStyle.card(g, left + 12, top + 70, w - 24, 60);
+            CasinoStyle.centered(g, st.animals() ? "Aucun animal inscrit pour l'instant." : "Le poulailler est vide.", cx(), top + 86, CasinoStyle.TEXT);
+            CasinoStyle.centered(g, st.animals() ? "Les joueurs inscrivent leur animal dans l'onglet « Mon animal »." : "", cx(), top + 102, CasinoStyle.MUTED);
+        }
+        boolean canPick = st.owner() && (st.phase() == 0 || st.phase() == 1);
+        for (int i = 0; i < r.size() && i < 8; i++) {
+            int[] p = cardPos(i);
+            int x = p[0], y = p[1];
+            FighterView f = r.get(i);
+            boolean red = st.pickA() == i, blue = st.pickB() == i;
+            if (red || blue) CasinoStyle.round(g, x - 2, y - 2, CARD_W + 4, CARD_H + 4, 10, red ? RED_SIDE : BLUE_SIDE);
+            CasinoStyle.roundGradient(g, x, y, CARD_W, CARD_H, 9, 0xFF2E1F55, 0xFF1A1033);
+            CasinoStyle.disc(g, x + 12, y + 12, 6, 0xFF000000 | f.color());
+            g.drawString(font, fit(f.name(), CARD_W - (canPick ? 110 : 40)), x + 22, y + 5, CasinoStyle.WHITE, false);
+            String sub = f.owner().isEmpty() ? f.desc() : f.desc() + " · " + f.owner();
+            g.drawString(font, fit(sub, CARD_W - (canPick ? 110 : 40)), x + 22, y + 16, f.owner().isEmpty() ? CasinoStyle.MUTED : CasinoStyle.CYAN, false);
+            int col = red ? RED_SIDE : blue ? BLUE_SIDE : CasinoStyle.PINK;
+            stat(g, x + 6, y + 30, "F", f.force(), col);
+            stat(g, x + 54, y + 30, "A", f.agility(), col);
+            stat(g, x + 102, y + 30, "E", f.stamina(), col);
+            String rec = f.resting() ? "au repos" : f.wins() + " V · " + f.losses() + " D";
+            g.drawString(font, rec, x + CARD_W - 6 - font.width(rec), y + 30, f.resting() ? CasinoStyle.ORANGE : CasinoStyle.GOLD, false);
+            if (canPick) {
+                pickButton(g, x + CARD_W - 86, y + 4, "Rouge", RED_SIDE, red, mx, my);
+                pickButton(g, x + CARD_W - 44, y + 4, "Bleu", BLUE_SIDE, blue, mx, my);
+            } else if (red || blue) {
+                String t = red ? "ROUGE" : "BLEU";
+                CasinoStyle.round(g, x + CARD_W - 46, y + 4, 40, 11, 5, red ? RED_SIDE : BLUE_SIDE);
+                CasinoStyle.centered(g, t, x + CARD_W - 26, y + 6, CasinoStyle.WHITE);
+            }
+        }
+        String hint = !st.owner() ? (st.animals() ? "L'organisateur choisit deux inscrits pour chaque combat." : "L'organisateur choisit deux coqs du poulailler.")
+                : st.phase() >= 2 ? "Combat lancé : les choix sont figés jusqu'à la fin."
+                : st.pickA() >= 0 && st.pickB() >= 0 ? "Les deux coins sont pris : ouvrez les paris dans l'onglet Combat."
+                : "Placez un combattant dans le coin rouge et un dans le coin bleu.";
+        CasinoStyle.centered(g, fit(hint, w - 30), cx(), top + h - 58, CasinoStyle.MUTED);
+        drawStatus(g, top + h - 46);
+    }
+
+    private void pickButton(GuiGraphics g, int x, int y, String label, int color, boolean on, int mx, int my) {
+        boolean hov = mx >= x && mx < x + 40 && my >= y && my < y + 13;
+        CasinoStyle.button(g, x, y, 40, 13, label, on ? color : CasinoStyle.mix(color, 0xFF1A1033, 0.55f), hov, true);
+    }
+
+    // ------------------------------------------------------------------ onglet Mon animal
+
+    private static String mmss(int sec) { return sec >= 60 ? (sec / 60) + " min" : sec + " s"; }
+
+    private void drawPet(GuiGraphics g) {
+        int x = left + 12, y = top + 64, ww = w - 24;
+        CasinoStyle.card(g, x, y, ww, 196);
+        var p = st.pet();
+        if (!p.present()) {
+            CasinoStyle.centered(g, "Amenez votre animal apprivoisé tout près de vous", cx(), y + 70, CasinoStyle.TEXT);
+            CasinoStyle.centered(g, "(chien, chat, animal de compagnie…) pour l'inscrire ou l'entraîner.", cx(), y + 84, CasinoStyle.MUTED);
+            drawStatus(g, top + h - 46);
+            return;
+        }
+        g.pose().pushPose();
+        g.pose().translate(x + 40, y + 52, 0);
+        g.pose().scale(1.4f, 1.4f, 1);
+        drawAnimal(g, 0xFF000000 | (0x404040 | (p.species().hashCode() & 0xBFBFBF)), false);
+        g.pose().popPose();
+        CasinoStyle.scaled(g, CasinoStyle.bold(fit(p.name(), 200)), x + 80, y + 12, 1.3f, CasinoStyle.WHITE);
+        g.drawString(font, fit(p.species(), 220), x + 80, y + 28, CasinoStyle.CYAN, false);
+        g.drawString(font, p.wins() + " victoire(s) · " + p.losses() + " défaite(s)", x + 80, y + 40, CasinoStyle.GOLD, false);
+        String[] lab = {"Force", "Agilité", "Endurance"};
+        int[] v = {p.force(), p.agility(), p.stamina()};
+        for (int i = 0; i < 3; i++) {
+            int ry = top + 154 + i * 24;
+            g.drawString(font, lab[i], x + 12, ry, CasinoStyle.TEXT, false);
+            for (int k = 0; k < p.statMax(); k++) CasinoStyle.round(g, x + 80 + k * 12, ry, 9, 9, 4, k < v[i] ? CasinoStyle.PINK : 0x44FFFFFF);
+        }
+        String info = p.registered() ? "Inscrit : l'organisateur peut le choisir. Un double se bat, votre animal ne risque rien."
+                : p.restWait() > 0 ? "Au repos encore " + mmss(p.restWait()) + " après son dernier combat."
+                : p.trainWait() > 0 ? "Prochain entraînement dans " + mmss(p.trainWait()) + "."
+                : "Chaque séance d'entraînement ajoute +1 (payée en espèces).";
+        g.drawString(font, fit(info, ww - 24), x + 12, y + 70, CasinoStyle.MUTED, false);
+        drawStatus(g, top + h - 46);
+    }
+
+    // ------------------------------------------------------------------ onglet Organisation
+
+    private void drawOrg(GuiGraphics g) {
+        int x = left + 12, y = top + 64, ww = w - 24;
+        CasinoStyle.card(g, x, y, ww, 196);
+        g.drawString(font, "Votre arène", x + 12, y + 10, CasinoStyle.GOLD, false);
+        g.drawString(font, "Commission", x + 12, top + 135, CasinoStyle.TEXT, false);
+        String pct = String.format(java.util.Locale.ROOT, "%.0f %%", st.commission());
+        CasinoStyle.round(g, left + 228, top + 130, 54, 18, 9, CasinoStyle.FRAME);
+        CasinoStyle.centered(g, pct, left + 255, top + 135, CasinoStyle.GOLD);
+        g.drawString(font, "max " + String.format(java.util.Locale.ROOT, "%.0f %%", st.commissionMax()), left + 318, top + 135, CasinoStyle.MUTED, false);
+        String[] lines = {
+                "Prise sur les mises PERDANTES de chaque combat, versée en espèces",
+                "à vous seul (à votre prochaine connexion si vous êtes absent).",
+                "Commissions touchées : " + CasinoStyle.euros(st.earned()),
+                "",
+                "Déroulé : 1. choisissez les deux combattants (onglet Combattants),",
+                "2. ouvrez les paris et choisissez leur durée, 3. le combat part à la",
+                "fin du compte à rebours (ou lancez-le avant). Attention à la police !"};
+        for (int i = 0; i < lines.length; i++)
+            g.drawString(font, fit(lines[i], ww - 24), x + 12, top + 158 + i * 11, i == 2 ? CasinoStyle.OK : CasinoStyle.MUTED, false);
+        drawStatus(g, top + h - 46);
+    }
+
+    // ------------------------------------------------------------------ arène et combattants dessinés
 
     private void drawArena(GuiGraphics g, float pt) {
-        int cx = arenaCx(), cy = arenaCy();
-        CasinoStyle.oval(g, cx, cy + 6, 150, 46, 0x66000000);
-        CasinoStyle.oval(g, cx, cy, 150, 46, 0xFF4A2C14);    // palissade
-        CasinoStyle.oval(g, cx, cy, 144, 41, 0xFF6B4423);
-        CasinoStyle.oval(g, cx, cy + 2, 136, 36, 0xFFB98D52); // sable
-        CasinoStyle.oval(g, cx, cy, 120, 28, 0xFFC9A066);
+        int cx = cx(), cy = cy();
+        boolean big = st != null && st.animals();
+        int rx = big ? 170 : 150, ry = big ? 40 : 36;
+        CasinoStyle.oval(g, cx, cy + 6, rx, ry, 0x66000000);
+        CasinoStyle.oval(g, cx, cy, rx, ry, big ? 0xFF3A3F47 : 0xFF4A2C14);   // grillage / palissade
+        CasinoStyle.oval(g, cx, cy, rx - 6, ry - 5, big ? 0xFF5C626C : 0xFF6B4423);
+        CasinoStyle.oval(g, cx, cy + 2, rx - 14, ry - 10, 0xFFB98D52);         // sable
+        CasinoStyle.oval(g, cx, cy, rx - 30, ry - 18, 0xFFC9A066);
         for (int k = 0; k < 18; k++) {
-            int px = cx - 120 + (k * 37) % 240, py = cy - 18 + (k * 23) % 36;
+            int px = cx - 120 + (k * 37) % 240, py = cy - 14 + (k * 23) % 28;
             g.fill(px, py, px + 2, py + 1, 0xFF9C7440);
         }
-        if (st != null) {
-            int phase = st.phase();
-            if (phase == 1) {
-                String t = "PARIS OUVERTS · " + st.seconds() + " s";
-                int tw = font.width(t) + 16;
-                CasinoStyle.round(g, cx - tw / 2, cy - 52, tw, 13, 6, CasinoStyle.PINK);
-                CasinoStyle.centered(g, t, cx, cy - 49, CasinoStyle.WHITE);
-            } else if (phase == 2) {
-                CasinoStyle.scaled(g, CasinoStyle.bold("COMBAT !"), cx - 26, cy - 54, 1.4f, CasinoStyle.ORANGE);
-            } else if (phase == 0 && !st.nameA().isEmpty()) {
-                CasinoStyle.centered(g, "Faites vos jeux : le premier pari lance le compte à rebours", cx, cy - 50, CasinoStyle.MUTED);
-            } else if (phase == 3) {
-                String t = "Victoire de " + (st.winner() == 0 ? st.nameA() : st.nameB()) + " · suivant dans " + st.seconds() + " s";
-                CasinoStyle.centered(g, fit(t, w - 30), cx, cy - 50, CasinoStyle.GOLD);
-            }
-            if (!st.nameA().isEmpty()) {
-                hpBar(g, cx - 140, cy - 38, shownA, st.hpMaxA(), RED_SIDE);
-                hpBar(g, cx + 60, cy - 38, shownB, st.hpMaxB(), BLUE_SIDE);
-                drawCockAt(g, 0, pt);
-                drawCockAt(g, 1, pt);
-            }
+        if (st == null) return;
+        int phase = st.phase();
+        String banner = switch (phase) {
+            case 1 -> "Combat prêt : les paris vont ouvrir";
+            case 2 -> "PARIS OUVERTS · " + st.seconds() + " s";
+            case 3 -> "COMBAT !";
+            case 4 -> "Victoire de " + (st.winner() == 0 ? st.a().name() : st.b().name()) + " · fin dans " + st.seconds() + " s";
+            default -> st.open() ? "En attente des combattants" : "Arène bâchée";
+        };
+        int bw = font.width(banner) + 18, bc = phase == 2 ? CasinoStyle.PINK : phase == 3 ? CasinoStyle.ORANGE : phase == 4 ? 0xFFB08A20 : 0xCC1A1033;
+        CasinoStyle.round(g, cx - bw / 2, cy - ry - 4, bw, 13, 6, bc);
+        CasinoStyle.centered(g, fit(banner, w - 40), cx, cy - ry - 1, CasinoStyle.WHITE);
+        if (!st.a().name().isEmpty()) {
+            hpBar(g, cx - rx + 14, cy - 30, shownA, st.a().hp(), RED_SIDE);
+            hpBar(g, cx + rx - 94, cy - 30, shownB, st.b().hp(), BLUE_SIDE);
+            drawFighterAt(g, 0, pt);
+            drawFighterAt(g, 1, pt);
         }
         for (float[] f : feathers) {
             int a = (int) Math.min(255, f[4] * 14);
@@ -368,33 +477,30 @@ public class CockfightScreen extends CasinoScreen {
         if (frac > 0) CasinoStyle.round(g, x + 1, y + 1, Math.max(2, Math.round(78 * frac)), 5, 2, frac < 0.3f ? CasinoStyle.ORANGE : col);
     }
 
-    private void drawCockAt(GuiGraphics g, int side, float pt) {
-        int cx = arenaCx(), cy = arenaCy();
+    private void drawFighterAt(GuiGraphics g, int side, float pt) {
         float t = ticks + pt;
-        int baseX = cx + (side == 0 ? -44 : 44);
+        int baseX = cx() + (side == 0 ? -48 : 48);
         float bob = (float) Math.sin(t * 0.25 + side * 2) * 1.5f;
         float ox = 0, oy = bob;
-        boolean dead = st.phase() == 3 && st.winner() != side;
-        if (animTicks < 10 && st.phase() >= 2) {
+        boolean dead = st.phase() == 4 && st.winner() != side;
+        if (animTicks < 10 && st.phase() >= 3) {
             float k = animTicks + pt;
             if (side == animAttacker) {
-                // bond vers l'adversaire puis retour
-                float lunge = (float) Math.sin(Math.min(1, k / 8f) * Math.PI);
-                ox = (side == 0 ? 1 : -1) * lunge * 40;
+                float lunge = (float) Math.sin(Math.min(1, k / 8f) * Math.PI);   // bond vers l'adversaire puis retour
+                ox = (side == 0 ? 1 : -1) * lunge * 42;
                 oy = -lunge * 10;
             } else if (animAttacker >= 0) {
                 ox = (float) Math.sin(k * 2.2) * (animCrit ? 3 : 1.5f) * Math.max(0, 1 - k / 10f);
             }
         }
-        if (st.phase() == 3 && !dead) oy = -Math.abs((float) Math.sin(t * 0.4)) * 6;   // le vainqueur sautille
-        int color = 0xFF000000 | (side == 0 ? st.colorA() : st.colorB());
-        boolean hurt = animTicks < 4 && side != animAttacker && animAttacker >= 0 && st.phase() == 2;
+        if (st.phase() == 4 && !dead) oy = -Math.abs((float) Math.sin(t * 0.4)) * 6;   // le vainqueur sautille
+        int color = 0xFF000000 | (side == 0 ? st.a().color() : st.b().color());
+        boolean hurt = animTicks < 4 && side != animAttacker && animAttacker >= 0 && st.phase() == 3;
         g.pose().pushPose();
-        g.pose().translate(baseX + ox, cy + 6 + oy, 0);
+        g.pose().translate(baseX + ox, cy() + 8 + oy, 0);
         if (dead) g.pose().mulPose(Axis.ZP.rotationDegrees(side == 0 ? -90 : 90));
-        g.pose().scale(side == 0 ? 1 : -1, 1, 1);   // les deux coqs se font face
-        boolean animal = ex != null && !(side == 0 ? ex.ownerA() : ex.ownerB()).isEmpty();
-        if (animal) drawAnimal(g, dead ? 0xFF6E6A70 : color, hurt);
+        g.pose().scale(side == 0 ? 1 : -1, 1, 1);   // les deux combattants se font face
+        if (st.animals()) drawAnimal(g, dead ? 0xFF6E6A70 : color, hurt);
         else drawCock(g, dead ? 0xFF6E6A70 : color, hurt);
         g.pose().popPose();
     }
@@ -417,34 +523,52 @@ public class CockfightScreen extends CasinoScreen {
     /** Coq dessiné face à droite, pieds à l'origine. */
     private static void drawCock(GuiGraphics g, int body, boolean hurt) {
         int dark = CasinoStyle.darken(body, 0.6f);
-        // queue en panache
-        for (int k = 0; k < 4; k++) CasinoStyle.round(g, -17 + k, -24 + k * 3, 6, 12, 3, k % 2 == 0 ? 0xFF1E3A2A : dark);
-        // pattes
-        g.fill(-3, -6, -2, 0, 0xFFE0A21A);
+        for (int k = 0; k < 4; k++) CasinoStyle.round(g, -17 + k, -24 + k * 3, 6, 12, 3, k % 2 == 0 ? 0xFF1E3A2A : dark);   // queue en panache
+        g.fill(-3, -6, -2, 0, 0xFFE0A21A);   // pattes
         g.fill(2, -6, 3, 0, 0xFFE0A21A);
         g.fill(-5, -1, -1, 0, 0xFFE0A21A);
         g.fill(1, -1, 5, 0, 0xFFE0A21A);
-        // corps et aile
-        CasinoStyle.oval(g, 0, -13, 12, 8, body);
+        CasinoStyle.oval(g, 0, -13, 12, 8, body);   // corps et aile
         CasinoStyle.oval(g, -2, -12, 7, 4, dark);
-        // cou et tête
-        CasinoStyle.round(g, 6, -24, 6, 10, 3, body);
+        CasinoStyle.round(g, 6, -24, 6, 10, 3, body);   // cou et tête
         CasinoStyle.disc(g, 10, -25, 5, body);
-        // crête et barbillons
-        CasinoStyle.round(g, 7, -32, 3, 4, 1, 0xFFE0192E);
+        CasinoStyle.round(g, 7, -32, 3, 4, 1, 0xFFE0192E);   // crête et barbillons
         CasinoStyle.round(g, 9, -33, 3, 5, 1, 0xFFE0192E);
         CasinoStyle.round(g, 11, -32, 3, 4, 1, 0xFFE0192E);
         CasinoStyle.round(g, 12, -22, 2, 4, 1, 0xFFE0192E);
-        // bec et œil
-        g.fill(15, -26, 19, -24, 0xFFF2B21B);
+        g.fill(15, -26, 19, -24, 0xFFF2B21B);   // bec et œil
         g.fill(16, -24, 18, -23, 0xFFC98A0A);
         g.fill(11, -27, 13, -25, 0xFF111111);
         if (hurt) CasinoStyle.oval(g, 0, -16, 14, 12, 0x88FF2020);
     }
 
+    // ------------------------------------------------------------------ clics
+
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        if (tab == 0 && st != null && !st.police() && chipClick(left + 48, top + h - 49, mx, my)) return true;
+        if (st != null && tab == TAB_COMBAT) {
+            if (!st.police() && chipClick(left + 46, top + 264, mx, my)) {
+                typed = String.valueOf(chip / 100);
+                amount.setValue(typed);
+                return true;
+            }
+            // choisir son coin en cliquant sur une fiche (paris ouverts, pas déjà engagé de l'autre côté)
+            if (st.phase() == 2 && !st.a().name().isEmpty() && my >= top + 152 && my < top + 208) {
+                int side = mx < left + w / 2 ? 0 : 1;
+                if ((side == 0 ? st.mineB() : st.mineA()) == 0) { betSide = side; sound(SoundEvents.UI_BUTTON_CLICK.value(), 1.2f); }
+                return true;
+            }
+        }
+        if (st != null && tab == TAB_ROSTER && st.owner() && (st.phase() == 0 || st.phase() == 1)) {
+            for (int i = 0; i < st.roster().size() && i < 8; i++) {
+                int[] p = cardPos(i);
+                int y = p[1] + 4;
+                if (my < y || my >= y + 13) continue;
+                int rx = p[0] + CARD_W - 86, bx = p[0] + CARD_W - 44;
+                if (mx >= rx && mx < rx + 40) { send(10, 0, st.pickA() == i ? -1 : i); return true; }
+                if (mx >= bx && mx < bx + 40) { send(10, 1, st.pickB() == i ? -1 : i); return true; }
+            }
+        }
         return super.mouseClicked(mx, my, button);
     }
 }

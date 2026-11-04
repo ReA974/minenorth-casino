@@ -1,0 +1,1348 @@
+{
+ "variants": {
+  "facing=north,open=true,part=0": {
+   "model": "minenorthcasino:block/arene_animaux_p0",
+   "y": 0
+  },
+  "facing=north,open=false,part=0": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p0",
+   "y": 0
+  },
+  "facing=north,open=true,part=1": {
+   "model": "minenorthcasino:block/arene_animaux_p1",
+   "y": 0
+  },
+  "facing=north,open=false,part=1": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p1",
+   "y": 0
+  },
+  "facing=north,open=true,part=2": {
+   "model": "minenorthcasino:block/arene_animaux_p2",
+   "y": 0
+  },
+  "facing=north,open=false,part=2": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p2",
+   "y": 0
+  },
+  "facing=north,open=true,part=3": {
+   "model": "minenorthcasino:block/arene_animaux_p3",
+   "y": 0
+  },
+  "facing=north,open=false,part=3": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p3",
+   "y": 0
+  },
+  "facing=north,open=true,part=4": {
+   "model": "minenorthcasino:block/arene_animaux_p4",
+   "y": 0
+  },
+  "facing=north,open=false,part=4": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p4",
+   "y": 0
+  },
+  "facing=north,open=true,part=5": {
+   "model": "minenorthcasino:block/arene_animaux_p5",
+   "y": 0
+  },
+  "facing=north,open=false,part=5": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p5",
+   "y": 0
+  },
+  "facing=north,open=true,part=6": {
+   "model": "minenorthcasino:block/arene_animaux_p6",
+   "y": 0
+  },
+  "facing=north,open=false,part=6": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p6",
+   "y": 0
+  },
+  "facing=north,open=true,part=7": {
+   "model": "minenorthcasino:block/arene_animaux_p7",
+   "y": 0
+  },
+  "facing=north,open=false,part=7": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p7",
+   "y": 0
+  },
+  "facing=north,open=true,part=8": {
+   "model": "minenorthcasino:block/arene_animaux_p8",
+   "y": 0
+  },
+  "facing=north,open=false,part=8": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p8",
+   "y": 0
+  },
+  "facing=north,open=true,part=9": {
+   "model": "minenorthcasino:block/arene_animaux_p9",
+   "y": 0
+  },
+  "facing=north,open=false,part=9": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p9",
+   "y": 0
+  },
+  "facing=north,open=true,part=10": {
+   "model": "minenorthcasino:block/arene_animaux_p10",
+   "y": 0
+  },
+  "facing=north,open=false,part=10": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p10",
+   "y": 0
+  },
+  "facing=north,open=true,part=11": {
+   "model": "minenorthcasino:block/arene_animaux_p11",
+   "y": 0
+  },
+  "facing=north,open=false,part=11": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p11",
+   "y": 0
+  },
+  "facing=north,open=true,part=12": {
+   "model": "minenorthcasino:block/arene_animaux_p12",
+   "y": 0
+  },
+  "facing=north,open=false,part=12": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p12",
+   "y": 0
+  },
+  "facing=north,open=true,part=13": {
+   "model": "minenorthcasino:block/arene_animaux_p13",
+   "y": 0
+  },
+  "facing=north,open=false,part=13": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p13",
+   "y": 0
+  },
+  "facing=north,open=true,part=14": {
+   "model": "minenorthcasino:block/arene_animaux_p14",
+   "y": 0
+  },
+  "facing=north,open=false,part=14": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p14",
+   "y": 0
+  },
+  "facing=north,open=true,part=15": {
+   "model": "minenorthcasino:block/arene_animaux_p15",
+   "y": 0
+  },
+  "facing=north,open=false,part=15": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p15",
+   "y": 0
+  },
+  "facing=north,open=true,part=16": {
+   "model": "minenorthcasino:block/arene_animaux_p16",
+   "y": 0
+  },
+  "facing=north,open=false,part=16": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p16",
+   "y": 0
+  },
+  "facing=north,open=true,part=17": {
+   "model": "minenorthcasino:block/arene_animaux_p17",
+   "y": 0
+  },
+  "facing=north,open=false,part=17": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p17",
+   "y": 0
+  },
+  "facing=north,open=true,part=18": {
+   "model": "minenorthcasino:block/arene_animaux_p18",
+   "y": 0
+  },
+  "facing=north,open=false,part=18": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p18",
+   "y": 0
+  },
+  "facing=north,open=true,part=19": {
+   "model": "minenorthcasino:block/arene_animaux_p19",
+   "y": 0
+  },
+  "facing=north,open=false,part=19": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p19",
+   "y": 0
+  },
+  "facing=north,open=true,part=20": {
+   "model": "minenorthcasino:block/arene_animaux_p20",
+   "y": 0
+  },
+  "facing=north,open=false,part=20": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p20",
+   "y": 0
+  },
+  "facing=north,open=true,part=21": {
+   "model": "minenorthcasino:block/arene_animaux_p21",
+   "y": 0
+  },
+  "facing=north,open=false,part=21": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p21",
+   "y": 0
+  },
+  "facing=north,open=true,part=22": {
+   "model": "minenorthcasino:block/arene_animaux_p22",
+   "y": 0
+  },
+  "facing=north,open=false,part=22": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p22",
+   "y": 0
+  },
+  "facing=north,open=true,part=23": {
+   "model": "minenorthcasino:block/arene_animaux_p23",
+   "y": 0
+  },
+  "facing=north,open=false,part=23": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p23",
+   "y": 0
+  },
+  "facing=north,open=true,part=24": {
+   "model": "minenorthcasino:block/arene_animaux_p24",
+   "y": 0
+  },
+  "facing=north,open=false,part=24": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p24",
+   "y": 0
+  },
+  "facing=north,open=true,part=25": {
+   "model": "minenorthcasino:block/arene_animaux_p25",
+   "y": 0
+  },
+  "facing=north,open=false,part=25": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p25",
+   "y": 0
+  },
+  "facing=north,open=true,part=26": {
+   "model": "minenorthcasino:block/arene_animaux_p26",
+   "y": 0
+  },
+  "facing=north,open=false,part=26": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p26",
+   "y": 0
+  },
+  "facing=north,open=true,part=27": {
+   "model": "minenorthcasino:block/arene_animaux_p27",
+   "y": 0
+  },
+  "facing=north,open=false,part=27": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p27",
+   "y": 0
+  },
+  "facing=north,open=true,part=28": {
+   "model": "minenorthcasino:block/arene_animaux_p28",
+   "y": 0
+  },
+  "facing=north,open=false,part=28": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p28",
+   "y": 0
+  },
+  "facing=north,open=true,part=29": {
+   "model": "minenorthcasino:block/arene_animaux_p29",
+   "y": 0
+  },
+  "facing=north,open=false,part=29": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p29",
+   "y": 0
+  },
+  "facing=north,open=true,part=30": {
+   "model": "minenorthcasino:block/arene_animaux_p30",
+   "y": 0
+  },
+  "facing=north,open=false,part=30": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p30",
+   "y": 0
+  },
+  "facing=north,open=true,part=31": {
+   "model": "minenorthcasino:block/arene_animaux_p31",
+   "y": 0
+  },
+  "facing=north,open=false,part=31": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p31",
+   "y": 0
+  },
+  "facing=north,open=true,part=32": {
+   "model": "minenorthcasino:block/arene_animaux_p32",
+   "y": 0
+  },
+  "facing=north,open=false,part=32": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p32",
+   "y": 0
+  },
+  "facing=north,open=true,part=33": {
+   "model": "minenorthcasino:block/arene_animaux_p33",
+   "y": 0
+  },
+  "facing=north,open=false,part=33": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p33",
+   "y": 0
+  },
+  "facing=north,open=true,part=34": {
+   "model": "minenorthcasino:block/arene_animaux_p34",
+   "y": 0
+  },
+  "facing=north,open=false,part=34": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p34",
+   "y": 0
+  },
+  "facing=north,open=true,part=35": {
+   "model": "minenorthcasino:block/arene_animaux_p35",
+   "y": 0
+  },
+  "facing=north,open=false,part=35": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p35",
+   "y": 0
+  },
+  "facing=north,open=true,part=36": {
+   "model": "minenorthcasino:block/arene_animaux_p36",
+   "y": 0
+  },
+  "facing=north,open=false,part=36": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p36",
+   "y": 0
+  },
+  "facing=north,open=true,part=37": {
+   "model": "minenorthcasino:block/arene_animaux_p37",
+   "y": 0
+  },
+  "facing=north,open=false,part=37": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p37",
+   "y": 0
+  },
+  "facing=north,open=true,part=38": {
+   "model": "minenorthcasino:block/arene_animaux_p38",
+   "y": 0
+  },
+  "facing=north,open=false,part=38": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p38",
+   "y": 0
+  },
+  "facing=north,open=true,part=39": {
+   "model": "minenorthcasino:block/arene_animaux_p39",
+   "y": 0
+  },
+  "facing=north,open=false,part=39": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p39",
+   "y": 0
+  },
+  "facing=north,open=true,part=40": {
+   "model": "minenorthcasino:block/arene_animaux_p40",
+   "y": 0
+  },
+  "facing=north,open=false,part=40": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p40",
+   "y": 0
+  },
+  "facing=north,open=true,part=41": {
+   "model": "minenorthcasino:block/arene_animaux_p41",
+   "y": 0
+  },
+  "facing=north,open=false,part=41": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p41",
+   "y": 0
+  },
+  "facing=east,open=true,part=0": {
+   "model": "minenorthcasino:block/arene_animaux_p0",
+   "y": 90
+  },
+  "facing=east,open=false,part=0": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p0",
+   "y": 90
+  },
+  "facing=east,open=true,part=1": {
+   "model": "minenorthcasino:block/arene_animaux_p1",
+   "y": 90
+  },
+  "facing=east,open=false,part=1": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p1",
+   "y": 90
+  },
+  "facing=east,open=true,part=2": {
+   "model": "minenorthcasino:block/arene_animaux_p2",
+   "y": 90
+  },
+  "facing=east,open=false,part=2": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p2",
+   "y": 90
+  },
+  "facing=east,open=true,part=3": {
+   "model": "minenorthcasino:block/arene_animaux_p3",
+   "y": 90
+  },
+  "facing=east,open=false,part=3": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p3",
+   "y": 90
+  },
+  "facing=east,open=true,part=4": {
+   "model": "minenorthcasino:block/arene_animaux_p4",
+   "y": 90
+  },
+  "facing=east,open=false,part=4": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p4",
+   "y": 90
+  },
+  "facing=east,open=true,part=5": {
+   "model": "minenorthcasino:block/arene_animaux_p5",
+   "y": 90
+  },
+  "facing=east,open=false,part=5": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p5",
+   "y": 90
+  },
+  "facing=east,open=true,part=6": {
+   "model": "minenorthcasino:block/arene_animaux_p6",
+   "y": 90
+  },
+  "facing=east,open=false,part=6": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p6",
+   "y": 90
+  },
+  "facing=east,open=true,part=7": {
+   "model": "minenorthcasino:block/arene_animaux_p7",
+   "y": 90
+  },
+  "facing=east,open=false,part=7": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p7",
+   "y": 90
+  },
+  "facing=east,open=true,part=8": {
+   "model": "minenorthcasino:block/arene_animaux_p8",
+   "y": 90
+  },
+  "facing=east,open=false,part=8": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p8",
+   "y": 90
+  },
+  "facing=east,open=true,part=9": {
+   "model": "minenorthcasino:block/arene_animaux_p9",
+   "y": 90
+  },
+  "facing=east,open=false,part=9": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p9",
+   "y": 90
+  },
+  "facing=east,open=true,part=10": {
+   "model": "minenorthcasino:block/arene_animaux_p10",
+   "y": 90
+  },
+  "facing=east,open=false,part=10": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p10",
+   "y": 90
+  },
+  "facing=east,open=true,part=11": {
+   "model": "minenorthcasino:block/arene_animaux_p11",
+   "y": 90
+  },
+  "facing=east,open=false,part=11": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p11",
+   "y": 90
+  },
+  "facing=east,open=true,part=12": {
+   "model": "minenorthcasino:block/arene_animaux_p12",
+   "y": 90
+  },
+  "facing=east,open=false,part=12": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p12",
+   "y": 90
+  },
+  "facing=east,open=true,part=13": {
+   "model": "minenorthcasino:block/arene_animaux_p13",
+   "y": 90
+  },
+  "facing=east,open=false,part=13": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p13",
+   "y": 90
+  },
+  "facing=east,open=true,part=14": {
+   "model": "minenorthcasino:block/arene_animaux_p14",
+   "y": 90
+  },
+  "facing=east,open=false,part=14": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p14",
+   "y": 90
+  },
+  "facing=east,open=true,part=15": {
+   "model": "minenorthcasino:block/arene_animaux_p15",
+   "y": 90
+  },
+  "facing=east,open=false,part=15": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p15",
+   "y": 90
+  },
+  "facing=east,open=true,part=16": {
+   "model": "minenorthcasino:block/arene_animaux_p16",
+   "y": 90
+  },
+  "facing=east,open=false,part=16": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p16",
+   "y": 90
+  },
+  "facing=east,open=true,part=17": {
+   "model": "minenorthcasino:block/arene_animaux_p17",
+   "y": 90
+  },
+  "facing=east,open=false,part=17": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p17",
+   "y": 90
+  },
+  "facing=east,open=true,part=18": {
+   "model": "minenorthcasino:block/arene_animaux_p18",
+   "y": 90
+  },
+  "facing=east,open=false,part=18": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p18",
+   "y": 90
+  },
+  "facing=east,open=true,part=19": {
+   "model": "minenorthcasino:block/arene_animaux_p19",
+   "y": 90
+  },
+  "facing=east,open=false,part=19": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p19",
+   "y": 90
+  },
+  "facing=east,open=true,part=20": {
+   "model": "minenorthcasino:block/arene_animaux_p20",
+   "y": 90
+  },
+  "facing=east,open=false,part=20": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p20",
+   "y": 90
+  },
+  "facing=east,open=true,part=21": {
+   "model": "minenorthcasino:block/arene_animaux_p21",
+   "y": 90
+  },
+  "facing=east,open=false,part=21": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p21",
+   "y": 90
+  },
+  "facing=east,open=true,part=22": {
+   "model": "minenorthcasino:block/arene_animaux_p22",
+   "y": 90
+  },
+  "facing=east,open=false,part=22": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p22",
+   "y": 90
+  },
+  "facing=east,open=true,part=23": {
+   "model": "minenorthcasino:block/arene_animaux_p23",
+   "y": 90
+  },
+  "facing=east,open=false,part=23": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p23",
+   "y": 90
+  },
+  "facing=east,open=true,part=24": {
+   "model": "minenorthcasino:block/arene_animaux_p24",
+   "y": 90
+  },
+  "facing=east,open=false,part=24": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p24",
+   "y": 90
+  },
+  "facing=east,open=true,part=25": {
+   "model": "minenorthcasino:block/arene_animaux_p25",
+   "y": 90
+  },
+  "facing=east,open=false,part=25": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p25",
+   "y": 90
+  },
+  "facing=east,open=true,part=26": {
+   "model": "minenorthcasino:block/arene_animaux_p26",
+   "y": 90
+  },
+  "facing=east,open=false,part=26": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p26",
+   "y": 90
+  },
+  "facing=east,open=true,part=27": {
+   "model": "minenorthcasino:block/arene_animaux_p27",
+   "y": 90
+  },
+  "facing=east,open=false,part=27": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p27",
+   "y": 90
+  },
+  "facing=east,open=true,part=28": {
+   "model": "minenorthcasino:block/arene_animaux_p28",
+   "y": 90
+  },
+  "facing=east,open=false,part=28": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p28",
+   "y": 90
+  },
+  "facing=east,open=true,part=29": {
+   "model": "minenorthcasino:block/arene_animaux_p29",
+   "y": 90
+  },
+  "facing=east,open=false,part=29": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p29",
+   "y": 90
+  },
+  "facing=east,open=true,part=30": {
+   "model": "minenorthcasino:block/arene_animaux_p30",
+   "y": 90
+  },
+  "facing=east,open=false,part=30": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p30",
+   "y": 90
+  },
+  "facing=east,open=true,part=31": {
+   "model": "minenorthcasino:block/arene_animaux_p31",
+   "y": 90
+  },
+  "facing=east,open=false,part=31": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p31",
+   "y": 90
+  },
+  "facing=east,open=true,part=32": {
+   "model": "minenorthcasino:block/arene_animaux_p32",
+   "y": 90
+  },
+  "facing=east,open=false,part=32": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p32",
+   "y": 90
+  },
+  "facing=east,open=true,part=33": {
+   "model": "minenorthcasino:block/arene_animaux_p33",
+   "y": 90
+  },
+  "facing=east,open=false,part=33": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p33",
+   "y": 90
+  },
+  "facing=east,open=true,part=34": {
+   "model": "minenorthcasino:block/arene_animaux_p34",
+   "y": 90
+  },
+  "facing=east,open=false,part=34": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p34",
+   "y": 90
+  },
+  "facing=east,open=true,part=35": {
+   "model": "minenorthcasino:block/arene_animaux_p35",
+   "y": 90
+  },
+  "facing=east,open=false,part=35": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p35",
+   "y": 90
+  },
+  "facing=east,open=true,part=36": {
+   "model": "minenorthcasino:block/arene_animaux_p36",
+   "y": 90
+  },
+  "facing=east,open=false,part=36": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p36",
+   "y": 90
+  },
+  "facing=east,open=true,part=37": {
+   "model": "minenorthcasino:block/arene_animaux_p37",
+   "y": 90
+  },
+  "facing=east,open=false,part=37": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p37",
+   "y": 90
+  },
+  "facing=east,open=true,part=38": {
+   "model": "minenorthcasino:block/arene_animaux_p38",
+   "y": 90
+  },
+  "facing=east,open=false,part=38": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p38",
+   "y": 90
+  },
+  "facing=east,open=true,part=39": {
+   "model": "minenorthcasino:block/arene_animaux_p39",
+   "y": 90
+  },
+  "facing=east,open=false,part=39": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p39",
+   "y": 90
+  },
+  "facing=east,open=true,part=40": {
+   "model": "minenorthcasino:block/arene_animaux_p40",
+   "y": 90
+  },
+  "facing=east,open=false,part=40": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p40",
+   "y": 90
+  },
+  "facing=east,open=true,part=41": {
+   "model": "minenorthcasino:block/arene_animaux_p41",
+   "y": 90
+  },
+  "facing=east,open=false,part=41": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p41",
+   "y": 90
+  },
+  "facing=south,open=true,part=0": {
+   "model": "minenorthcasino:block/arene_animaux_p0",
+   "y": 180
+  },
+  "facing=south,open=false,part=0": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p0",
+   "y": 180
+  },
+  "facing=south,open=true,part=1": {
+   "model": "minenorthcasino:block/arene_animaux_p1",
+   "y": 180
+  },
+  "facing=south,open=false,part=1": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p1",
+   "y": 180
+  },
+  "facing=south,open=true,part=2": {
+   "model": "minenorthcasino:block/arene_animaux_p2",
+   "y": 180
+  },
+  "facing=south,open=false,part=2": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p2",
+   "y": 180
+  },
+  "facing=south,open=true,part=3": {
+   "model": "minenorthcasino:block/arene_animaux_p3",
+   "y": 180
+  },
+  "facing=south,open=false,part=3": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p3",
+   "y": 180
+  },
+  "facing=south,open=true,part=4": {
+   "model": "minenorthcasino:block/arene_animaux_p4",
+   "y": 180
+  },
+  "facing=south,open=false,part=4": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p4",
+   "y": 180
+  },
+  "facing=south,open=true,part=5": {
+   "model": "minenorthcasino:block/arene_animaux_p5",
+   "y": 180
+  },
+  "facing=south,open=false,part=5": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p5",
+   "y": 180
+  },
+  "facing=south,open=true,part=6": {
+   "model": "minenorthcasino:block/arene_animaux_p6",
+   "y": 180
+  },
+  "facing=south,open=false,part=6": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p6",
+   "y": 180
+  },
+  "facing=south,open=true,part=7": {
+   "model": "minenorthcasino:block/arene_animaux_p7",
+   "y": 180
+  },
+  "facing=south,open=false,part=7": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p7",
+   "y": 180
+  },
+  "facing=south,open=true,part=8": {
+   "model": "minenorthcasino:block/arene_animaux_p8",
+   "y": 180
+  },
+  "facing=south,open=false,part=8": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p8",
+   "y": 180
+  },
+  "facing=south,open=true,part=9": {
+   "model": "minenorthcasino:block/arene_animaux_p9",
+   "y": 180
+  },
+  "facing=south,open=false,part=9": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p9",
+   "y": 180
+  },
+  "facing=south,open=true,part=10": {
+   "model": "minenorthcasino:block/arene_animaux_p10",
+   "y": 180
+  },
+  "facing=south,open=false,part=10": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p10",
+   "y": 180
+  },
+  "facing=south,open=true,part=11": {
+   "model": "minenorthcasino:block/arene_animaux_p11",
+   "y": 180
+  },
+  "facing=south,open=false,part=11": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p11",
+   "y": 180
+  },
+  "facing=south,open=true,part=12": {
+   "model": "minenorthcasino:block/arene_animaux_p12",
+   "y": 180
+  },
+  "facing=south,open=false,part=12": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p12",
+   "y": 180
+  },
+  "facing=south,open=true,part=13": {
+   "model": "minenorthcasino:block/arene_animaux_p13",
+   "y": 180
+  },
+  "facing=south,open=false,part=13": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p13",
+   "y": 180
+  },
+  "facing=south,open=true,part=14": {
+   "model": "minenorthcasino:block/arene_animaux_p14",
+   "y": 180
+  },
+  "facing=south,open=false,part=14": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p14",
+   "y": 180
+  },
+  "facing=south,open=true,part=15": {
+   "model": "minenorthcasino:block/arene_animaux_p15",
+   "y": 180
+  },
+  "facing=south,open=false,part=15": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p15",
+   "y": 180
+  },
+  "facing=south,open=true,part=16": {
+   "model": "minenorthcasino:block/arene_animaux_p16",
+   "y": 180
+  },
+  "facing=south,open=false,part=16": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p16",
+   "y": 180
+  },
+  "facing=south,open=true,part=17": {
+   "model": "minenorthcasino:block/arene_animaux_p17",
+   "y": 180
+  },
+  "facing=south,open=false,part=17": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p17",
+   "y": 180
+  },
+  "facing=south,open=true,part=18": {
+   "model": "minenorthcasino:block/arene_animaux_p18",
+   "y": 180
+  },
+  "facing=south,open=false,part=18": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p18",
+   "y": 180
+  },
+  "facing=south,open=true,part=19": {
+   "model": "minenorthcasino:block/arene_animaux_p19",
+   "y": 180
+  },
+  "facing=south,open=false,part=19": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p19",
+   "y": 180
+  },
+  "facing=south,open=true,part=20": {
+   "model": "minenorthcasino:block/arene_animaux_p20",
+   "y": 180
+  },
+  "facing=south,open=false,part=20": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p20",
+   "y": 180
+  },
+  "facing=south,open=true,part=21": {
+   "model": "minenorthcasino:block/arene_animaux_p21",
+   "y": 180
+  },
+  "facing=south,open=false,part=21": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p21",
+   "y": 180
+  },
+  "facing=south,open=true,part=22": {
+   "model": "minenorthcasino:block/arene_animaux_p22",
+   "y": 180
+  },
+  "facing=south,open=false,part=22": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p22",
+   "y": 180
+  },
+  "facing=south,open=true,part=23": {
+   "model": "minenorthcasino:block/arene_animaux_p23",
+   "y": 180
+  },
+  "facing=south,open=false,part=23": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p23",
+   "y": 180
+  },
+  "facing=south,open=true,part=24": {
+   "model": "minenorthcasino:block/arene_animaux_p24",
+   "y": 180
+  },
+  "facing=south,open=false,part=24": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p24",
+   "y": 180
+  },
+  "facing=south,open=true,part=25": {
+   "model": "minenorthcasino:block/arene_animaux_p25",
+   "y": 180
+  },
+  "facing=south,open=false,part=25": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p25",
+   "y": 180
+  },
+  "facing=south,open=true,part=26": {
+   "model": "minenorthcasino:block/arene_animaux_p26",
+   "y": 180
+  },
+  "facing=south,open=false,part=26": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p26",
+   "y": 180
+  },
+  "facing=south,open=true,part=27": {
+   "model": "minenorthcasino:block/arene_animaux_p27",
+   "y": 180
+  },
+  "facing=south,open=false,part=27": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p27",
+   "y": 180
+  },
+  "facing=south,open=true,part=28": {
+   "model": "minenorthcasino:block/arene_animaux_p28",
+   "y": 180
+  },
+  "facing=south,open=false,part=28": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p28",
+   "y": 180
+  },
+  "facing=south,open=true,part=29": {
+   "model": "minenorthcasino:block/arene_animaux_p29",
+   "y": 180
+  },
+  "facing=south,open=false,part=29": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p29",
+   "y": 180
+  },
+  "facing=south,open=true,part=30": {
+   "model": "minenorthcasino:block/arene_animaux_p30",
+   "y": 180
+  },
+  "facing=south,open=false,part=30": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p30",
+   "y": 180
+  },
+  "facing=south,open=true,part=31": {
+   "model": "minenorthcasino:block/arene_animaux_p31",
+   "y": 180
+  },
+  "facing=south,open=false,part=31": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p31",
+   "y": 180
+  },
+  "facing=south,open=true,part=32": {
+   "model": "minenorthcasino:block/arene_animaux_p32",
+   "y": 180
+  },
+  "facing=south,open=false,part=32": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p32",
+   "y": 180
+  },
+  "facing=south,open=true,part=33": {
+   "model": "minenorthcasino:block/arene_animaux_p33",
+   "y": 180
+  },
+  "facing=south,open=false,part=33": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p33",
+   "y": 180
+  },
+  "facing=south,open=true,part=34": {
+   "model": "minenorthcasino:block/arene_animaux_p34",
+   "y": 180
+  },
+  "facing=south,open=false,part=34": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p34",
+   "y": 180
+  },
+  "facing=south,open=true,part=35": {
+   "model": "minenorthcasino:block/arene_animaux_p35",
+   "y": 180
+  },
+  "facing=south,open=false,part=35": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p35",
+   "y": 180
+  },
+  "facing=south,open=true,part=36": {
+   "model": "minenorthcasino:block/arene_animaux_p36",
+   "y": 180
+  },
+  "facing=south,open=false,part=36": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p36",
+   "y": 180
+  },
+  "facing=south,open=true,part=37": {
+   "model": "minenorthcasino:block/arene_animaux_p37",
+   "y": 180
+  },
+  "facing=south,open=false,part=37": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p37",
+   "y": 180
+  },
+  "facing=south,open=true,part=38": {
+   "model": "minenorthcasino:block/arene_animaux_p38",
+   "y": 180
+  },
+  "facing=south,open=false,part=38": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p38",
+   "y": 180
+  },
+  "facing=south,open=true,part=39": {
+   "model": "minenorthcasino:block/arene_animaux_p39",
+   "y": 180
+  },
+  "facing=south,open=false,part=39": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p39",
+   "y": 180
+  },
+  "facing=south,open=true,part=40": {
+   "model": "minenorthcasino:block/arene_animaux_p40",
+   "y": 180
+  },
+  "facing=south,open=false,part=40": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p40",
+   "y": 180
+  },
+  "facing=south,open=true,part=41": {
+   "model": "minenorthcasino:block/arene_animaux_p41",
+   "y": 180
+  },
+  "facing=south,open=false,part=41": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p41",
+   "y": 180
+  },
+  "facing=west,open=true,part=0": {
+   "model": "minenorthcasino:block/arene_animaux_p0",
+   "y": 270
+  },
+  "facing=west,open=false,part=0": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p0",
+   "y": 270
+  },
+  "facing=west,open=true,part=1": {
+   "model": "minenorthcasino:block/arene_animaux_p1",
+   "y": 270
+  },
+  "facing=west,open=false,part=1": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p1",
+   "y": 270
+  },
+  "facing=west,open=true,part=2": {
+   "model": "minenorthcasino:block/arene_animaux_p2",
+   "y": 270
+  },
+  "facing=west,open=false,part=2": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p2",
+   "y": 270
+  },
+  "facing=west,open=true,part=3": {
+   "model": "minenorthcasino:block/arene_animaux_p3",
+   "y": 270
+  },
+  "facing=west,open=false,part=3": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p3",
+   "y": 270
+  },
+  "facing=west,open=true,part=4": {
+   "model": "minenorthcasino:block/arene_animaux_p4",
+   "y": 270
+  },
+  "facing=west,open=false,part=4": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p4",
+   "y": 270
+  },
+  "facing=west,open=true,part=5": {
+   "model": "minenorthcasino:block/arene_animaux_p5",
+   "y": 270
+  },
+  "facing=west,open=false,part=5": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p5",
+   "y": 270
+  },
+  "facing=west,open=true,part=6": {
+   "model": "minenorthcasino:block/arene_animaux_p6",
+   "y": 270
+  },
+  "facing=west,open=false,part=6": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p6",
+   "y": 270
+  },
+  "facing=west,open=true,part=7": {
+   "model": "minenorthcasino:block/arene_animaux_p7",
+   "y": 270
+  },
+  "facing=west,open=false,part=7": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p7",
+   "y": 270
+  },
+  "facing=west,open=true,part=8": {
+   "model": "minenorthcasino:block/arene_animaux_p8",
+   "y": 270
+  },
+  "facing=west,open=false,part=8": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p8",
+   "y": 270
+  },
+  "facing=west,open=true,part=9": {
+   "model": "minenorthcasino:block/arene_animaux_p9",
+   "y": 270
+  },
+  "facing=west,open=false,part=9": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p9",
+   "y": 270
+  },
+  "facing=west,open=true,part=10": {
+   "model": "minenorthcasino:block/arene_animaux_p10",
+   "y": 270
+  },
+  "facing=west,open=false,part=10": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p10",
+   "y": 270
+  },
+  "facing=west,open=true,part=11": {
+   "model": "minenorthcasino:block/arene_animaux_p11",
+   "y": 270
+  },
+  "facing=west,open=false,part=11": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p11",
+   "y": 270
+  },
+  "facing=west,open=true,part=12": {
+   "model": "minenorthcasino:block/arene_animaux_p12",
+   "y": 270
+  },
+  "facing=west,open=false,part=12": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p12",
+   "y": 270
+  },
+  "facing=west,open=true,part=13": {
+   "model": "minenorthcasino:block/arene_animaux_p13",
+   "y": 270
+  },
+  "facing=west,open=false,part=13": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p13",
+   "y": 270
+  },
+  "facing=west,open=true,part=14": {
+   "model": "minenorthcasino:block/arene_animaux_p14",
+   "y": 270
+  },
+  "facing=west,open=false,part=14": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p14",
+   "y": 270
+  },
+  "facing=west,open=true,part=15": {
+   "model": "minenorthcasino:block/arene_animaux_p15",
+   "y": 270
+  },
+  "facing=west,open=false,part=15": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p15",
+   "y": 270
+  },
+  "facing=west,open=true,part=16": {
+   "model": "minenorthcasino:block/arene_animaux_p16",
+   "y": 270
+  },
+  "facing=west,open=false,part=16": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p16",
+   "y": 270
+  },
+  "facing=west,open=true,part=17": {
+   "model": "minenorthcasino:block/arene_animaux_p17",
+   "y": 270
+  },
+  "facing=west,open=false,part=17": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p17",
+   "y": 270
+  },
+  "facing=west,open=true,part=18": {
+   "model": "minenorthcasino:block/arene_animaux_p18",
+   "y": 270
+  },
+  "facing=west,open=false,part=18": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p18",
+   "y": 270
+  },
+  "facing=west,open=true,part=19": {
+   "model": "minenorthcasino:block/arene_animaux_p19",
+   "y": 270
+  },
+  "facing=west,open=false,part=19": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p19",
+   "y": 270
+  },
+  "facing=west,open=true,part=20": {
+   "model": "minenorthcasino:block/arene_animaux_p20",
+   "y": 270
+  },
+  "facing=west,open=false,part=20": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p20",
+   "y": 270
+  },
+  "facing=west,open=true,part=21": {
+   "model": "minenorthcasino:block/arene_animaux_p21",
+   "y": 270
+  },
+  "facing=west,open=false,part=21": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p21",
+   "y": 270
+  },
+  "facing=west,open=true,part=22": {
+   "model": "minenorthcasino:block/arene_animaux_p22",
+   "y": 270
+  },
+  "facing=west,open=false,part=22": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p22",
+   "y": 270
+  },
+  "facing=west,open=true,part=23": {
+   "model": "minenorthcasino:block/arene_animaux_p23",
+   "y": 270
+  },
+  "facing=west,open=false,part=23": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p23",
+   "y": 270
+  },
+  "facing=west,open=true,part=24": {
+   "model": "minenorthcasino:block/arene_animaux_p24",
+   "y": 270
+  },
+  "facing=west,open=false,part=24": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p24",
+   "y": 270
+  },
+  "facing=west,open=true,part=25": {
+   "model": "minenorthcasino:block/arene_animaux_p25",
+   "y": 270
+  },
+  "facing=west,open=false,part=25": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p25",
+   "y": 270
+  },
+  "facing=west,open=true,part=26": {
+   "model": "minenorthcasino:block/arene_animaux_p26",
+   "y": 270
+  },
+  "facing=west,open=false,part=26": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p26",
+   "y": 270
+  },
+  "facing=west,open=true,part=27": {
+   "model": "minenorthcasino:block/arene_animaux_p27",
+   "y": 270
+  },
+  "facing=west,open=false,part=27": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p27",
+   "y": 270
+  },
+  "facing=west,open=true,part=28": {
+   "model": "minenorthcasino:block/arene_animaux_p28",
+   "y": 270
+  },
+  "facing=west,open=false,part=28": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p28",
+   "y": 270
+  },
+  "facing=west,open=true,part=29": {
+   "model": "minenorthcasino:block/arene_animaux_p29",
+   "y": 270
+  },
+  "facing=west,open=false,part=29": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p29",
+   "y": 270
+  },
+  "facing=west,open=true,part=30": {
+   "model": "minenorthcasino:block/arene_animaux_p30",
+   "y": 270
+  },
+  "facing=west,open=false,part=30": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p30",
+   "y": 270
+  },
+  "facing=west,open=true,part=31": {
+   "model": "minenorthcasino:block/arene_animaux_p31",
+   "y": 270
+  },
+  "facing=west,open=false,part=31": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p31",
+   "y": 270
+  },
+  "facing=west,open=true,part=32": {
+   "model": "minenorthcasino:block/arene_animaux_p32",
+   "y": 270
+  },
+  "facing=west,open=false,part=32": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p32",
+   "y": 270
+  },
+  "facing=west,open=true,part=33": {
+   "model": "minenorthcasino:block/arene_animaux_p33",
+   "y": 270
+  },
+  "facing=west,open=false,part=33": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p33",
+   "y": 270
+  },
+  "facing=west,open=true,part=34": {
+   "model": "minenorthcasino:block/arene_animaux_p34",
+   "y": 270
+  },
+  "facing=west,open=false,part=34": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p34",
+   "y": 270
+  },
+  "facing=west,open=true,part=35": {
+   "model": "minenorthcasino:block/arene_animaux_p35",
+   "y": 270
+  },
+  "facing=west,open=false,part=35": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p35",
+   "y": 270
+  },
+  "facing=west,open=true,part=36": {
+   "model": "minenorthcasino:block/arene_animaux_p36",
+   "y": 270
+  },
+  "facing=west,open=false,part=36": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p36",
+   "y": 270
+  },
+  "facing=west,open=true,part=37": {
+   "model": "minenorthcasino:block/arene_animaux_p37",
+   "y": 270
+  },
+  "facing=west,open=false,part=37": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p37",
+   "y": 270
+  },
+  "facing=west,open=true,part=38": {
+   "model": "minenorthcasino:block/arene_animaux_p38",
+   "y": 270
+  },
+  "facing=west,open=false,part=38": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p38",
+   "y": 270
+  },
+  "facing=west,open=true,part=39": {
+   "model": "minenorthcasino:block/arene_animaux_p39",
+   "y": 270
+  },
+  "facing=west,open=false,part=39": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p39",
+   "y": 270
+  },
+  "facing=west,open=true,part=40": {
+   "model": "minenorthcasino:block/arene_animaux_p40",
+   "y": 270
+  },
+  "facing=west,open=false,part=40": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p40",
+   "y": 270
+  },
+  "facing=west,open=true,part=41": {
+   "model": "minenorthcasino:block/arene_animaux_p41",
+   "y": 270
+  },
+  "facing=west,open=false,part=41": {
+   "model": "minenorthcasino:block/arene_animaux_fermee_p41",
+   "y": 270
+  }
+ }
+}

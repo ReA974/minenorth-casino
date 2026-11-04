@@ -1,0 +1,160 @@
+{
+ "parent": "minecraft:block/block",
+ "textures": {
+  "atlas": "minenorthcasino:block/casino_atlas",
+  "particle": "minenorthcasino:block/casino_atlas"
+ },
+ "elements": [
+  {
+   "from": [
+    0,
+    0,
+    0
+   ],
+   "to": [
+    16,
+    0.5,
+    16
+   ],
+   "faces": {
+    "up": {
+     "texture": "#atlas",
+     "uv": [
+      14.25,
+      10.25,
+      15.75,
+      11.75
+     ]
+    }
+   }
+  },
+  {
+   "from": [
+    0,
+    0.5,
+    0
+   ],
+   "to": [
+    16,
+    11,
+    14
+   ],
+   "faces": {
+    "up": {
+     "texture": "#atlas",
+     "uv": [
+      8.25,
+      6.25,
+      9.75,
+      7.75
+     ]
+    },
+    "south": {
+     "texture": "#atlas",
+     "uv": [
+      8.25,
+      6.25,
+      9.75,
+      7.75
+     ]
+    }
+   }
+  },
+  {
+   "from": [
+    0,
+    11,
+    0
+   ],
+   "to": [
+    16,
+    15,
+    2
+   ],
+   "faces": {
+    "up": {
+     "texture": "#atlas",
+     "uv": [
+      10.25,
+      6.25,
+      11.75,
+      7.75
+     ]
+    },
+    "south": {
+     "texture": "#atlas",
+     "uv": [
+      10.25,
+      6.25,
+      11.75,
+      7.75
+     ]
+    }
+   }
+  },
+  {
+   "from": [
+    0,
+    0.5,
+    0
+   ],
+   "to": [
+    16,
+    1.2,
+    14.4
+   ],
+   "faces": {
+    "south": {
+     "texture": "#atlas",
+     "uv": [
+      10.25,
+      6.25,
+      11.75,
+      7.75
+     ]
+    }
+   }
+  },
+  {
+   "from": [
+    0,
+    0.5,
+    2
+   ],
+   "to": [
+    16,
+    11.2,
+    2.4
+   ],
+   "faces": {
+    "up": {
+     "texture": "#atlas",
+     "uv": [
+      2.25,
+      10.25,
+      3.75,
+      11.75
+     ]
+    },
+    "north": {
+     "texture": "#atlas",
+     "uv": [
+      2.25,
+      10.25,
+      3.75,
+      11.75
+     ]
+    },
+    "south": {
+     "texture": "#atlas",
+     "uv": [
+      2.25,
+      10.25,
+      3.75,
+      11.75
+     ]
+    }
+   }
+  }
+ ]
+}

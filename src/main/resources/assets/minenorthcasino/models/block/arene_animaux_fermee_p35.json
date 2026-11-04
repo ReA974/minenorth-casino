@@ -1,0 +1,177 @@
+{
+ "parent": "minecraft:block/block",
+ "textures": {
+  "atlas": "minenorthcasino:block/casino_atlas",
+  "particle": "minenorthcasino:block/casino_atlas"
+ },
+ "elements": [
+  {
+   "from": [
+    0,
+    0,
+    0
+   ],
+   "to": [
+    16,
+    0.5,
+    16
+   ],
+   "faces": {
+    "up": {
+     "texture": "#atlas",
+     "uv": [
+      14.25,
+      10.25,
+      15.75,
+      11.75
+     ]
+    },
+    "south": {
+     "texture": "#atlas",
+     "uv": [
+      14.25,
+      10.25,
+      15.75,
+      11.75
+     ]
+    },
+    "east": {
+     "texture": "#atlas",
+     "uv": [
+      14.25,
+      10.25,
+      15.75,
+      11.75
+     ]
+    }
+   }
+  },
+  {
+   "from": [
+    7,
+    0.5,
+    2
+   ],
+   "to": [
+    14,
+    7.5,
+    9
+   ],
+   "faces": {
+    "up": {
+     "texture": "#atlas",
+     "uv": [
+      12.25,
+      6.25,
+      13.75,
+      7.75
+     ]
+    },
+    "down": {
+     "texture": "#atlas",
+     "uv": [
+      12.25,
+      6.25,
+      13.75,
+      7.75
+     ]
+    },
+    "north": {
+     "texture": "#atlas",
+     "uv": [
+      12.25,
+      6.25,
+      13.75,
+      7.75
+     ]
+    },
+    "south": {
+     "texture": "#atlas",
+     "uv": [
+      12.25,
+      6.25,
+      13.75,
+      7.75
+     ]
+    },
+    "east": {
+     "texture": "#atlas",
+     "uv": [
+      12.25,
+      6.25,
+      13.75,
+      7.75
+     ]
+    },
+    "west": {
+     "texture": "#atlas",
+     "uv": [
+      12.25,
+      6.25,
+      13.75,
+      7.75
+     ]
+    }
+   }
+  },
+  {
+   "from": [
+    7.4,
+    7.5,
+    2.4
+   ],
+   "to": [
+    13.6,
+    7.7,
+    8.6
+   ],
+   "faces": {
+    "up": {
+     "texture": "#atlas",
+     "uv": [
+      14.25,
+      6.25,
+      15.75,
+      7.75
+     ]
+    },
+    "north": {
+     "texture": "#atlas",
+     "uv": [
+      14.25,
+      6.25,
+      15.75,
+      7.75
+     ]
+    },
+    "south": {
+     "texture": "#atlas",
+     "uv": [
+      14.25,
+      6.25,
+      15.75,
+      7.75
+     ]
+    },
+    "east": {
+     "texture": "#atlas",
+     "uv": [
+      14.25,
+      6.25,
+      15.75,
+      7.75
+     ]
+    },
+    "west": {
+     "texture": "#atlas",
+     "uv": [
+      14.25,
+      6.25,
+      15.75,
+      7.75
+     ]
+    }
+   }
+  }
+ ]
+}

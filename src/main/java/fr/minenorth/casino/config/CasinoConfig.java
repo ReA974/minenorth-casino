@@ -136,25 +136,26 @@ public final class CasinoConfig {
     }
 
     /**
-     * Combats de coqs clandestins : paris en espèces, au pari mutuel (les perdants paient les gagnants, la maison prend une commission
-     * sur la mise des perdants). L'arène change d'emplacement comme les boutiques illégales, la police peut la démanteler.
+     * Combats clandestins (coqs et animaux des joueurs) : paris en espèces, au pari mutuel (les perdants paient les gagnants,
+     * l'organisateur — le joueur qui a posé l'arène — touche une commission sur la mise des perdants). La police peut démanteler l'arène.
      */
     public static final class Coqs {
         public double mise_min_euros = 10;
         public double mise_max_euros = 2000;
         public List<Double> mises_rapides_euros = new ArrayList<>(List.of(10.0, 50.0, 100.0, 500.0));
-        /** Durée des paris avant le combat ; le compte à rebours part au premier pari. */
-        public int duree_paris_secondes = 60;
+        /** Durées des paris proposées à l'organisateur quand il ouvre les paris (secondes). */
+        public List<Integer> durees_paris_secondes = new ArrayList<>(List.of(30, 60, 120));
+        /** true : n'importe quel joueur peut poser une arène et en devient l'organisateur ; false : OP seulement. */
+        public boolean pose_par_les_joueurs = true;
+        /** Nombre de coqs dans le poulailler de chaque arène des coqs (l'organisateur y choisit ses deux combattants). */
+        public int coqs_au_poulailler = 6;
+        /** Animaux inscrits au plus en même temps dans une grande arène. */
+        public int animaux_inscrits_max = 8;
         /** Pause après un combat. */
         public int pause_secondes = 20;
-        /** Commission de l'organisateur, en % des mises perdantes. */
+        /** Commission de départ d'une nouvelle arène, en % des mises perdantes (l'organisateur la règle ensuite dans son menu). */
         public double commission_pourcent = 10;
-        /**
-         * Nom du gang qui tient l'arène (mod Portes). Ses membres présents récupèrent la caisse (les commissions, en espèces).
-         * Vide : les commissions partent au trésor public.
-         */
-        public String gang_organisateur = "";
-        /** Minutes entre deux déplacements de l'arène (s'il y a au moins 2 emplacements posés). */
+        /** Minutes entre deux déplacements d'une arène (si son organisateur en a posé au moins 2 du même type). */
         public int deplacement_minutes = 45;
         /** Pas de déplacement si un joueur est à moins de ce rayon de l'arène ouverte (ni pendant un combat). */
         public int rayon_presence_blocs = 24;
@@ -162,7 +163,7 @@ public final class CasinoConfig {
         public double chance_alerte_police = 0.2;
         /** true : seul un policier EN SERVICE peut démanteler l'arène. */
         public boolean police_en_service = true;
-        /** Après une descente de police, plus aucune arène n'ouvre pendant ce temps. */
+        /** Après une descente de police, les arènes de cet organisateur restent fermées pendant ce temps. */
         public int fermeture_apres_descente_minutes = 60;
 
         // --- animaux des joueurs (combats d'animaux apprivoisés : chien, chat, animaux Polly Pets…)
@@ -273,10 +274,23 @@ public final class CasinoConfig {
         k.mise_max_euros = Math.max(k.mise_min_euros, Math.round(k.mise_max_euros));
         k.mises_rapides_euros = chips(k.mises_rapides_euros, k.mise_min_euros, k.mise_max_euros);
         while (k.mises_rapides_euros.size() > 5) k.mises_rapides_euros.remove(1);
-        k.duree_paris_secondes = Math.max(15, Math.min(600, k.duree_paris_secondes));
+        if (k.durees_paris_secondes == null) k.durees_paris_secondes = new ArrayList<>();
+        List<Integer> d = new ArrayList<>();
+        for (Integer v : k.durees_paris_secondes) if (v != null && v >= 10 && v <= 600 && !d.contains(v) && d.size() < 4) d.add(v);
+        if (d.isEmpty()) d.addAll(List.of(30, 60, 120));
+        Collections.sort(d);
+        k.durees_paris_secondes = d;
         k.pause_secondes = Math.max(5, Math.min(600, k.pause_secondes));
-        k.commission_pourcent = Math.max(0, Math.min(50, k.commission_pourcent));
-        if (k.gang_organisateur == null) k.gang_organisateur = "";
+        k.commission_max_pourcent = Math.max(0, Math.min(50, k.commission_max_pourcent));
+        k.commission_pourcent = Math.max(0, Math.min(k.commission_max_pourcent, k.commission_pourcent));
+        k.coqs_au_poulailler = Math.max(2, Math.min(8, k.coqs_au_poulailler));
+        k.animaux_inscrits_max = Math.max(2, Math.min(8, k.animaux_inscrits_max));
+        k.animal_qualite_max = Math.max(3, Math.min(9, k.animal_qualite_max));
+        k.animal_qualites_depart = Math.max(1, Math.min(k.animal_qualite_max, k.animal_qualites_depart));
+        k.prix_entrainement_euros = Math.max(0, k.prix_entrainement_euros);
+        k.entrainement_minutes = Math.max(0, k.entrainement_minutes);
+        k.repos_animal_minutes = Math.max(0, k.repos_animal_minutes);
+        k.distance_animal_blocs = Math.max(2, Math.min(32, k.distance_animal_blocs));
         k.deplacement_minutes = Math.max(5, k.deplacement_minutes);
         k.rayon_presence_blocs = Math.max(4, Math.min(128, k.rayon_presence_blocs));
         k.chance_alerte_police = Math.max(0, Math.min(1, k.chance_alerte_police));

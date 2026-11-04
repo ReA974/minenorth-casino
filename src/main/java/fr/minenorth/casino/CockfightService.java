@@ -4,12 +4,14 @@ import com.mojang.logging.LogUtils;
 import fr.minenorth.api.MineNorth;
 import fr.minenorth.casino.block.ArenaBlock;
 import fr.minenorth.casino.block.CasinoBlock;
-import fr.minenorth.casino.block.ModBlocks;
 import fr.minenorth.casino.config.CasinoConfig;
 import fr.minenorth.casino.game.CockFight;
+import fr.minenorth.casino.game.CockFight.Cock;
 import fr.minenorth.casino.game.CockFight.Exchange;
 import fr.minenorth.casino.network.ModNetwork;
-import fr.minenorth.casino.network.ModNetwork.CockStatePacket;
+import fr.minenorth.casino.network.ModNetwork.ArenaStatePacket;
+import fr.minenorth.casino.network.ModNetwork.ArenaStatePacket.FighterView;
+import fr.minenorth.casino.network.ModNetwork.ArenaStatePacket.PetView;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ItemParticleOption;
@@ -41,6 +43,7 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -50,25 +53,27 @@ import java.lang.reflect.Method;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
- * Combats de coqs clandestins. Hors casino : pas d'entreprise, paris en ESPÈCES (billets du mod EuroBank), au pari mutuel :
- * les mises perdantes paient les gagnants au prorata, l'organisateur garde une commission sur les mises perdantes. Aucun argent
- * n'est créé : ce qui est misé est rendu, redistribué, mis dans la caisse de l'arène (récupérée par le gang organisateur) ou saisi
- * par la police (trésor public).
+ * Combats clandestins. Hors casino : pas d'entreprise, paris en ESPÈCES (billets du mod EuroBank), au pari mutuel : les mises perdantes
+ * paient les gagnants au prorata, l'organisateur garde une commission sur les mises perdantes. Aucun argent n'est créé : ce qui est misé
+ * est rendu, redistribué, versé à l'organisateur ou saisi par la police (trésor public).
  *
- * Plusieurs arènes peuvent être posées ; une seule est ouverte, et elle change d'emplacement régulièrement (comme les boutiques
- * illégales), jamais pendant un combat ni quand un joueur est tout près. Une descente de police ferme tout un moment.
- *
- * Animaux des joueurs : un maître inscrit son animal apprivoisé (chien, chat, animal Polly Pets…) à la place d'un coq de la maison.
- * Dans l'arène se bat un double de l'animal (même apparence, sans IA, invulnérable) : le vrai animal ne risque rien. Ses qualités
- * (force, agilité, endurance), victoires et défaites sont gardées par animal ; on les fait monter à l'entraînement (espèces, délai).
- * Menu de l'organisateur (gang organisateur ou staff) : arène ouverte / fermée, combats lancés automatiquement ou à la main,
- * commission et bénéficiaire de la commission (caisse du gang, maître du vainqueur, partage, ou un joueur désigné).
+ * L'ORGANISATEUR est le joueur qui a posé l'arène : il ouvre ou bâche son arène, choisit les deux combattants, ouvre les paris (durée
+ * au choix), lance le combat, règle sa commission et la touche en espèces. Deux types d'arène :
+ *  - arène des coqs (5 x 4) : l'organisateur choisit dans son poulailler (coqs tirés au hasard, palmarès gardé, poulailler renouvelable) ;
+ *  - grande arène des animaux (7 x 6) : les joueurs y inscrivent leur animal apprivoisé ; l'organisateur choisit parmi les inscrits.
+ *    Se bat un double de l'animal (même apparence, sans IA, invulnérable) : le vrai ne risque rien. Qualités et palmarès gardés par
+ *    animal, entraînement payé en espèces.
+ * Un organisateur qui pose plusieurs arènes du même type n'en a qu'une ouverte, qui change de place régulièrement (comme les boutiques
+ * illégales) ; il peut aussi l'installer lui-même ailleurs en ouvrant une autre de ses arènes. Les arènes sont indépendantes entre
+ * organisateurs. La police (en service) peut démanteler une arène : paris saisis, arènes de l'organisateur fermées un moment.
  */
 @Mod.EventBusSubscriber(modid = MineNorthCasino.MOD_ID)
 public final class CockfightService {
@@ -78,96 +83,88 @@ public final class CockfightService {
     private static final SecureRandom RNG = new SecureRandom();
     private static final String TAG = "minenorth_coq";
 
-    public enum Phase { IDLE, BETS, FIGHT, PAUSE }
+    public enum Phase { IDLE, MATCH, BETS, FIGHT, PAUSE }
 
     private record Bet(UUID id, String name, int side, long cents) {}
 
     private record View(ResourceKey<Level> dim, BlockPos master) {}
 
-    // ------------------------------------------------------------------ état du combat (une seule arène ouverte à la fois)
-    private static Phase phase = Phase.IDLE;
-    private static CockFight fight;
-    private static final List<Bet> BETS = new ArrayList<>();
-    private static List<Exchange> script = List.of();
-    private static int step;
-    private static long deadline;
-    private static int winner = -1;
-    private static String message = "";
-    private static final UUID[] CHICKENS = new UUID[2];
-    /** Animal de joueur inscrit de chaque côté (null = coq de la maison). snapshot : données de l'animal pour son double dans l'arène. */
+    record Spot(ResourceKey<Level> dim, BlockPos pos) {}
+
+    /** Animal inscrit dans une grande arène. snapshot : données de l'animal pour son double dans l'arène. */
     private record Entrant(UUID pet, UUID owner, String ownerName, String name, String species, CompoundTag snapshot) {}
-    private static final Entrant[] ENTRANTS = new Entrant[2];
-    private static long nextStepTick, hopBackTick;
-    private static int hopper = -1;
-    /** Joueurs qui ont l'écran de l'arène ouvert. */
+
+    /** Joueurs qui ont l'écran d'une arène ouvert. */
     private static final Map<UUID, View> VIEWERS = new HashMap<>();
 
-    // ------------------------------------------------------------------ données conservées : emplacements, caisse, gains en attente
+    // ------------------------------------------------------------------ une arène (un organisateur, un type) et son combat
 
-    public static final class Arenas extends SavedData {
-        private static final String NAME = "minenorth_casino_coqs";
-        record Spot(ResourceKey<Level> dim, BlockPos pos) {}
+    /** Coq du poulailler d'une arène des coqs, avec son palmarès. */
+    static final class HouseCock {
+        Cock cock;
+        int wins, losses;
 
+        HouseCock(Cock c) { cock = c; }
+
+        CompoundTag save() {
+            CompoundTag t = new CompoundTag();
+            t.putString("name", cock.name()); t.putInt("color", cock.color());
+            t.putInt("f", cock.force()); t.putInt("a", cock.agility()); t.putInt("s", cock.stamina());
+            t.putInt("wins", wins); t.putInt("losses", losses);
+            return t;
+        }
+
+        static HouseCock load(CompoundTag t) {
+            HouseCock h = new HouseCock(new Cock(t.getString("name"), t.getInt("color"), t.getInt("f"), t.getInt("a"), t.getInt("s")));
+            h.wins = t.getInt("wins");
+            h.losses = t.getInt("losses");
+            return h;
+        }
+    }
+
+    /** Déroulé en cours d'une arène (non conservé : un redémarrage rend les mises). */
+    private static final class Pit {
+        Phase phase = Phase.IDLE;
+        int pickA = -1, pickB = -1;
+        CockFight fight;
+        /** Animaux qui combattent (grande arène), figés quand le combat est choisi. */
+        final Entrant[] fighting = new Entrant[2];
+        final List<Bet> bets = new ArrayList<>();
+        List<Exchange> script = List.of();
+        int step, winner = -1, hopper = -1;
+        long deadline, nextStepTick, hopBackTick;
+        String message = "";
+        final UUID[] mobs = new UUID[2];
+        /** Animaux inscrits (grande arène). */
+        final List<Entrant> queue = new ArrayList<>();
+    }
+
+    static final class Group {
+        /** Organisateur : le joueur qui a posé l'arène (null : arène d'avant cette version, gérée par les OP). */
+        UUID owner;
+        String ownerName = "";
+        boolean animals;
         final List<Spot> spots = new ArrayList<>();
         int active = -1;
         long nextMove, closedUntil;
-        /** Commissions accumulées (centimes), à récupérer par le gang organisateur. */
-        long caisse;
-        long fights, staked, seized;
-        /** Gains d'un joueur parti avant la fin du combat : remis en espèces à sa prochaine connexion. */
-        final Map<UUID, Long> pending = new LinkedHashMap<>();
-        // réglages de l'organisateur (menu de l'arène)
-        /** Arène fermée par l'organisateur : les caisses restent bâchées même à l'emplacement actif. */
-        boolean closedByOrg;
-        /** Combats lancés à la main par l'organisateur (sinon : fin du compte à rebours des paris). */
-        boolean manual;
-        /** Qui touche la commission : 0 caisse du gang (trésor sans gang), 1 maître de l'animal vainqueur, 2 moitié / moitié, 3 joueur désigné. */
-        int beneficiary;
-        UUID beneficiaryId;
-        String beneficiaryName = "";
-        /** Commission en % des mises perdantes (-1 = valeur de la config). */
+        /** Bâchée par l'organisateur. */
+        boolean closed;
         double commission = -1;
-        /** Fiches des animaux de joueurs (qualités, palmarès), par animal. */
-        final Map<UUID, Fighter> fighters = new LinkedHashMap<>();
-
-        static Arenas get(MinecraftServer s) { return s.overworld().getDataStorage().computeIfAbsent(Arenas::load, Arenas::new, NAME); }
+        /** Commissions touchées par l'organisateur depuis le début (statistique). */
+        long earned;
+        final List<HouseCock> coop = new ArrayList<>();
+        final transient Pit pit = new Pit();
 
         Spot activeSpot() { return active >= 0 && active < spots.size() ? spots.get(active) : null; }
 
-        static Arenas load(CompoundTag t) {
-            Arenas a = new Arenas();
-            ListTag l = t.getList("spots", 10);
-            for (int i = 0; i < l.size(); i++) {
-                CompoundTag c = l.getCompound(i);
-                a.spots.add(new Spot(ResourceKey.create(Registries.DIMENSION, new ResourceLocation(c.getString("dim"))), BlockPos.of(c.getLong("pos"))));
-            }
-            a.active = t.getInt("active");
-            a.nextMove = t.getLong("nextMove");
-            a.closedUntil = t.getLong("closedUntil");
-            a.caisse = t.getLong("caisse");
-            a.fights = t.getLong("fights");
-            a.staked = t.getLong("staked");
-            a.seized = t.getLong("seized");
-            CompoundTag p = t.getCompound("pending");
-            for (String k : p.getAllKeys()) {
-                try { a.pending.put(UUID.fromString(k), p.getLong(k)); } catch (IllegalArgumentException ignored) {}
-            }
-            a.closedByOrg = t.getBoolean("closedByOrg");
-            a.manual = t.getBoolean("manual");
-            a.beneficiary = t.getInt("beneficiary");
-            if (t.hasUUID("beneficiaryId")) a.beneficiaryId = t.getUUID("beneficiaryId");
-            a.beneficiaryName = t.getString("beneficiaryName");
-            a.commission = t.contains("commission") ? t.getDouble("commission") : -1;
-            ListTag fl = t.getList("fighters", 10);
-            for (int i = 0; i < fl.size(); i++) {
-                Fighter f = Fighter.load(fl.getCompound(i));
-                if (f != null) a.fighters.put(f.pet, f);
-            }
-            return a;
-        }
+        /** Arène ouverte aux joueurs : pas bâchée, pas fermée par la police, installée quelque part. */
+        boolean open() { return !closed && System.currentTimeMillis() >= closedUntil && activeSpot() != null; }
 
-        @Override
-        public CompoundTag save(CompoundTag t) {
+        CompoundTag save() {
+            CompoundTag t = new CompoundTag();
+            if (owner != null) t.putUUID("owner", owner);
+            t.putString("ownerName", ownerName);
+            t.putBoolean("animals", animals);
             ListTag l = new ListTag();
             for (Spot s : spots) {
                 CompoundTag c = new CompoundTag();
@@ -179,19 +176,105 @@ public final class CockfightService {
             t.putInt("active", active);
             t.putLong("nextMove", nextMove);
             t.putLong("closedUntil", closedUntil);
-            t.putLong("caisse", caisse);
+            t.putBoolean("closed", closed);
+            t.putDouble("commission", commission);
+            t.putLong("earned", earned);
+            ListTag c = new ListTag();
+            for (HouseCock h : coop) c.add(h.save());
+            t.put("coop", c);
+            return t;
+        }
+
+        static Group load(CompoundTag t) {
+            Group g = new Group();
+            if (t.hasUUID("owner")) g.owner = t.getUUID("owner");
+            g.ownerName = t.getString("ownerName");
+            g.animals = t.getBoolean("animals");
+            loadSpots(t.getList("spots", 10), g.spots);
+            g.active = t.getInt("active");
+            g.nextMove = t.getLong("nextMove");
+            g.closedUntil = t.getLong("closedUntil");
+            g.closed = t.getBoolean("closed");
+            g.commission = t.contains("commission") ? t.getDouble("commission") : -1;
+            g.earned = t.getLong("earned");
+            ListTag c = t.getList("coop", 10);
+            for (int i = 0; i < c.size(); i++) g.coop.add(HouseCock.load(c.getCompound(i)));
+            return g;
+        }
+    }
+
+    private static void loadSpots(ListTag l, List<Spot> out) {
+        for (int i = 0; i < l.size(); i++) {
+            CompoundTag c = l.getCompound(i);
+            out.add(new Spot(ResourceKey.create(Registries.DIMENSION, new ResourceLocation(c.getString("dim"))), BlockPos.of(c.getLong("pos"))));
+        }
+    }
+
+    // ------------------------------------------------------------------ données conservées
+
+    public static final class Arenas extends SavedData {
+        private static final String NAME = "minenorth_casino_coqs";
+
+        final List<Group> groups = new ArrayList<>();
+        long fights, staked, seized;
+        /** Gains d'un joueur parti avant la fin du combat : remis en espèces à sa prochaine connexion. */
+        final Map<UUID, Long> pending = new LinkedHashMap<>();
+        /** Fiches des animaux de joueurs (qualités, palmarès), par animal. */
+        final Map<UUID, Fighter> fighters = new LinkedHashMap<>();
+        /** Caisse de l'ancienne version (commissions du gang) : versée au trésor au premier passage, rien ne se perd. */
+        long legacyCaisse;
+
+        static Arenas get(MinecraftServer s) { return s.overworld().getDataStorage().computeIfAbsent(Arenas::load, Arenas::new, NAME); }
+
+        Group groupAt(ResourceKey<Level> dim, BlockPos pos) {
+            Spot s = new Spot(dim, pos);
+            for (Group g : groups) if (g.spots.contains(s)) return g;
+            return null;
+        }
+
+        static Arenas load(CompoundTag t) {
+            Arenas a = new Arenas();
+            ListTag gl = t.getList("groups", 10);
+            for (int i = 0; i < gl.size(); i++) a.groups.add(Group.load(gl.getCompound(i)));
+            if (!t.contains("groups") && t.contains("spots")) {
+                // ancien format : une seule arène des coqs, sans organisateur (gérée par les OP)
+                Group g = new Group();
+                loadSpots(t.getList("spots", 10), g.spots);
+                g.active = t.getInt("active");
+                g.closedUntil = t.getLong("closedUntil");
+                g.closed = t.getBoolean("closedByOrg");
+                g.commission = t.contains("commission") ? t.getDouble("commission") : -1;
+                if (!g.spots.isEmpty()) a.groups.add(g);
+                a.legacyCaisse = t.getLong("caisse");
+            }
+            a.legacyCaisse += t.getLong("legacyCaisse");
+            a.fights = t.getLong("fights");
+            a.staked = t.getLong("staked");
+            a.seized = t.getLong("seized");
+            CompoundTag p = t.getCompound("pending");
+            for (String k : p.getAllKeys()) {
+                try { a.pending.put(UUID.fromString(k), p.getLong(k)); } catch (IllegalArgumentException ignored) {}
+            }
+            ListTag fl = t.getList("fighters", 10);
+            for (int i = 0; i < fl.size(); i++) {
+                Fighter f = Fighter.load(fl.getCompound(i));
+                if (f != null) a.fighters.put(f.pet, f);
+            }
+            return a;
+        }
+
+        @Override
+        public CompoundTag save(CompoundTag t) {
+            ListTag gl = new ListTag();
+            for (Group g : groups) gl.add(g.save());
+            t.put("groups", gl);
+            t.putLong("legacyCaisse", legacyCaisse);
             t.putLong("fights", fights);
             t.putLong("staked", staked);
             t.putLong("seized", seized);
             CompoundTag p = new CompoundTag();
             pending.forEach((k, v) -> p.putLong(k.toString(), v));
             t.put("pending", p);
-            t.putBoolean("closedByOrg", closedByOrg);
-            t.putBoolean("manual", manual);
-            t.putInt("beneficiary", beneficiary);
-            if (beneficiaryId != null) t.putUUID("beneficiaryId", beneficiaryId);
-            t.putString("beneficiaryName", beneficiaryName);
-            t.putDouble("commission", commission);
             ListTag fl = new ListTag();
             for (Fighter f : fighters.values()) fl.add(f.save());
             t.put("fighters", fl);
@@ -237,26 +320,75 @@ public final class CockfightService {
         }
     }
 
-    /** Arène posée : nouvel emplacement possible. */
-    public static void register(ServerLevel l, BlockPos master) {
+    // ------------------------------------------------------------------ pose et retrait des arènes
+
+    /** Arène posée : elle rejoint les arènes de son organisateur (même type) ; la première devient l'arène ouverte. */
+    public static void register(ServerLevel l, BlockPos master, ArenaBlock block, ServerPlayer by) {
         Arenas a = Arenas.get(l.getServer());
-        Arenas.Spot s = new Arenas.Spot(l.dimension(), master.immutable());
-        if (!a.spots.contains(s)) a.spots.add(s);
+        Spot s = new Spot(l.dimension(), master.immutable());
+        if (a.groupAt(s.dim(), s.pos()) != null) return;
+        UUID owner = by == null ? null : by.getUUID();
+        Group g = null;
+        for (Group x : a.groups) if (x.animals == block.animals() && java.util.Objects.equals(x.owner, owner)) g = x;
+        if (g == null) {
+            g = new Group();
+            g.owner = owner;
+            g.animals = block.animals();
+            a.groups.add(g);
+        }
+        if (by != null) g.ownerName = MineNorth.displayName(by);
+        g.spots.add(s);
+        if (g.activeSpot() == null) {
+            g.active = g.spots.size() - 1;
+            g.nextMove = System.currentTimeMillis() + CasinoConfig.get().combats_de_coqs.deplacement_minutes * 60_000L;
+        }
         a.setDirty();
         sync(l.getServer(), a);
+        if (by != null) by.sendSystemMessage(Component.literal("§6Arène posée : vous en êtes l'organisateur. §7Clic droit dessus pour choisir les "
+                + (block.animals() ? "animaux" : "coqs") + ", ouvrir les paris et régler votre commission."));
     }
 
     /** Arène cassée : l'emplacement disparaît (si c'était l'arène ouverte, le combat en cours est annulé et les mises rendues). */
     public static void unregister(ServerLevel l, BlockPos master) {
         Arenas a = Arenas.get(l.getServer());
-        Arenas.Spot s = new Arenas.Spot(l.dimension(), master);
-        int i = a.spots.indexOf(s);
-        if (i < 0) return;
-        Arenas.Spot was = a.activeSpot();
-        a.spots.remove(i);
-        if (s.equals(was)) { cancel(l.getServer(), "L'arène a été démontée : mises rendues."); a.active = -1; }
-        else if (was != null) a.active = a.spots.indexOf(was);
+        Group g = a.groupAt(l.dimension(), master);
+        if (g == null) return;
+        Spot s = new Spot(l.dimension(), master);
+        Spot was = g.activeSpot();
+        g.spots.remove(s);
+        if (s.equals(was)) {
+            cancel(l.getServer(), g, "L'arène a été démontée : mises rendues.");
+            g.active = g.spots.isEmpty() ? -1 : 0;
+        } else if (was != null) {
+            g.active = g.spots.indexOf(was);
+        }
+        if (g.spots.isEmpty()) a.groups.remove(g);
         a.setDirty();
+        sync(l.getServer(), a);
+    }
+
+    private static boolean isOwner(ServerPlayer p, Group g) {
+        return g.owner != null ? g.owner.equals(p.getUUID()) : p.hasPermissions(2);
+    }
+
+    @SubscribeEvent
+    public static void onPlace(BlockEvent.EntityPlaceEvent e) {
+        if (!(e.getPlacedBlock().getBlock() instanceof ArenaBlock) || CasinoConfig.get().combats_de_coqs.pose_par_les_joueurs) return;
+        if (e.getEntity() instanceof ServerPlayer sp && !sp.hasPermissions(2)) {
+            e.setCanceled(true);
+            sp.displayClientMessage(Component.literal("§cSeul un OP peut poser une arène."), true);
+        }
+    }
+
+    /** Seuls l'organisateur et les OP démontent une arène. */
+    @SubscribeEvent
+    public static void onBreak(BlockEvent.BreakEvent e) {
+        if (!(e.getState().getBlock() instanceof ArenaBlock ab) || !(e.getPlayer() instanceof ServerPlayer sp) || sp.hasPermissions(2)) return;
+        Group g = Arenas.get(sp.server).groupAt(sp.level().dimension(), ab.masterOf(e.getPos(), e.getState()));
+        if (g != null && !isOwner(sp, g)) {
+            e.setCanceled(true);
+            sp.displayClientMessage(Component.literal("§cCette arène appartient à " + (g.ownerName.isEmpty() ? "quelqu'un d'autre" : g.ownerName) + "."), true);
+        }
     }
 
     // ------------------------------------------------------------------ espèces (mod EuroBank, par réflexion : pas de dépendance de compilation)
@@ -306,32 +438,7 @@ public final class CockfightService {
         a.setDirty();
     }
 
-    // ------------------------------------------------------------------ gangs (mod Portes) et police
-
-    /** Gang du joueur « nom|tag|couleur|grade », vide sans gang ou sans le mod Portes. */
-    private static String gangOf(MinecraftServer s, UUID id) {
-        try {
-            return (String) Class.forName("fr.minenorth.portes.api.GangApi").getMethod("gangOf", MinecraftServer.class, UUID.class).invoke(null, s, id);
-        } catch (ReflectiveOperationException | RuntimeException e) {
-            return "";
-        }
-    }
-
-    /** Membre du gang organisateur, ou staff (OP) : récupère la caisse et règle l'arène depuis son menu. */
-    private static boolean organizer(ServerPlayer p) {
-        if (p.hasPermissions(2)) return true;
-        String g = CasinoConfig.get().combats_de_coqs.gang_organisateur.trim();
-        if (g.isEmpty()) return false;
-        String row = gangOf(p.server, p.getUUID());
-        return !row.isEmpty() && row.split("\\|")[0].equalsIgnoreCase(g);
-    }
-
-    /** Nom affiché d'un parieur, avec le tag de son gang s'il en a un. */
-    private static String bettorName(ServerPlayer p) {
-        String row = gangOf(p.server, p.getUUID());
-        String[] f = row.split("\\|");
-        return (f.length >= 2 && !f[1].isBlank() ? "[" + f[1] + "] " : "") + MineNorth.displayName(p);
-    }
+    // ------------------------------------------------------------------ police
 
     private static boolean police(ServerPlayer p) {
         if (!MineNorth.police().isPolice(p)) return false;
@@ -339,12 +446,14 @@ public final class CockfightService {
     }
 
     /** Alerte police (chat, repère de carte, onglet ALERTES) via le mod Police, position approximative (un témoin, pas un GPS). */
-    private static void alertPolice(MinecraftServer s, ResourceKey<Level> dim, BlockPos pos) {
+    private static void alertPolice(MinecraftServer s, Group g, Spot spot) {
+        BlockPos pos = spot.pos();
         int x = pos.getX() + RNG.nextInt(41) - 20, z = pos.getZ() + RNG.nextInt(41) - 20;
-        String label = "Combat de coqs clandestin", desc = "un témoin signale des cris d'animaux et des paris dans le secteur (position approximative).";
+        String label = g.animals ? "Combat d'animaux clandestin" : "Combat de coqs clandestin";
+        String desc = "un témoin signale des cris d'animaux et des paris dans le secteur (position approximative).";
         try {
             Class.forName("fr.minenorth.police.RadarHack").getMethod("raise", MinecraftServer.class, String.class, String.class, String.class,
-                    int.class, int.class, int.class, long.class).invoke(null, s, label, desc, dim.location().toString(), x, pos.getY(), z, 10L);
+                    int.class, int.class, int.class, long.class).invoke(null, s, label, desc, spot.dim().location().toString(), x, pos.getY(), z, 10L);
             return;
         } catch (ReflectiveOperationException | RuntimeException ignored) {
             // mod Police absent ou ancien : simple message aux policiers
@@ -353,117 +462,254 @@ public final class CockfightService {
             p.sendSystemMessage(Component.literal("§c§l[ALERTE] §r§c" + label + " vers §f" + x + " " + pos.getY() + " " + z + " §7— " + desc));
     }
 
-    // ------------------------------------------------------------------ ouverture
+    // ------------------------------------------------------------------ ouverture de l'écran
 
     public static void open(ServerPlayer sp, BlockPos master) {
         Arenas a = Arenas.get(sp.server);
-        BlockState st = sp.level().getBlockState(master);
-        boolean isActive = new Arenas.Spot(sp.level().dimension(), master).equals(a.activeSpot());
-        // l'organisateur ouvre le menu même quand il a bâché l'arène (pour la rouvrir)
-        if (isActive && a.closedByOrg && organizer(sp)) {
-            if (fight == null) newFight();
-            CasinoConfig.Coqs k = CasinoConfig.get().combats_de_coqs;
-            VIEWERS.put(sp.getUUID(), new View(sp.level().dimension(), master.immutable()));
-            ModNetwork.send(sp, new ModNetwork.OpenPacket(5, "Arène clandestine", CasinoConfig.cents(k.mise_min_euros), CasinoConfig.cents(k.mise_max_euros),
-                    CasinoConfig.centsList(k.mises_rapides_euros), List.of(), List.of(), List.of(), List.of(), (float) commission(a), false));
-            send(sp, -1);
+        Group g = a.groupAt(sp.level().dimension(), master);
+        if (g == null) {
+            // arène posée avant d'être suivie (ou données perdues) : celui qui clique en premier n'en devient pas maître, seul un OP la reprend
+            if (sp.level().getBlockState(master).getBlock() instanceof ArenaBlock ab && sp.hasPermissions(2)) {
+                register(sp.serverLevel(), master, ab, sp);
+                g = a.groupAt(sp.level().dimension(), master);
+            }
+            if (g == null) { sp.displayClientMessage(Component.literal("§7Des caisses empilées sous une bâche. Il n'y a personne."), true); return; }
+        }
+        Spot here = new Spot(sp.level().dimension(), master);
+        boolean owner = isOwner(sp, g);
+        if (!here.equals(g.activeSpot())) {
+            // l'organisateur installe son arène ici (entre deux combats) ; pour les autres, ce n'est qu'un tas de caisses
+            if (owner && (g.pit.phase == Phase.IDLE || g.pit.phase == Phase.MATCH || g.pit.phase == Phase.PAUSE) && g.pit.bets.isEmpty()) {
+                removeMobs(sp.server, g);
+                g.active = g.spots.indexOf(here);
+                g.nextMove = System.currentTimeMillis() + CasinoConfig.get().combats_de_coqs.deplacement_minutes * 60_000L;
+                a.setDirty();
+                sync(sp.server, a);
+                sp.displayClientMessage(Component.literal("§6Votre arène s'installe ici."), true);
+            } else {
+                sp.displayClientMessage(Component.literal(owner ? "§7Un combat est en cours dans votre autre arène."
+                        : police(sp) ? "§7Des caisses bâchées… rien de suspect pour l'instant." : "§7Des caisses empilées sous une bâche. Il n'y a personne."), true);
+                return;
+            }
+        }
+        if (!g.open() && !owner) {
+            sp.displayClientMessage(Component.literal(police(sp) ? "§7Des caisses bâchées… rien de suspect pour l'instant."
+                    : "§7Des caisses empilées sous une bâche. Il n'y a personne."), true);
             return;
         }
-        if (!isActive || !st.getValue(ArenaBlock.OPEN) || a.closedByOrg) {
-            if (isActive) sync(sp.server, a);
-            else sp.displayClientMessage(Component.literal(police(sp) ? "§7Des caisses bâchées… rien de suspect pour l'instant."
-                    : "§7Des caisses empilées sous une bâche. Il n'y a personne."), true);
-            if (!isActive) return;
-        }
-        if (fight == null) newFight();
+        if (!g.animals) fillCoop(g);
         CasinoConfig.Coqs k = CasinoConfig.get().combats_de_coqs;
         VIEWERS.put(sp.getUUID(), new View(sp.level().dimension(), master.immutable()));
-        ModNetwork.send(sp, new ModNetwork.OpenPacket(5, "Arène clandestine", CasinoConfig.cents(k.mise_min_euros), CasinoConfig.cents(k.mise_max_euros),
-                CasinoConfig.centsList(k.mises_rapides_euros), List.of(), List.of(), List.of(), List.of(), (float) commission(a), false));
-        send(sp, -1);
+        ModNetwork.send(sp, new ModNetwork.OpenPacket(5, g.animals ? "Grande arène · animaux" : "Arène des coqs", CasinoConfig.cents(k.mise_min_euros),
+                CasinoConfig.cents(k.mise_max_euros), CasinoConfig.centsList(k.mises_rapides_euros), List.of(), List.of(), List.of(), List.of(),
+                (float) commission(g), false));
+        send(sp, g, -1);
     }
 
     /** Commission en vigueur (%) : réglée par l'organisateur, sinon celle de la config. */
-    private static double commission(Arenas a) {
+    private static double commission(Group g) {
         CasinoConfig.Coqs k = CasinoConfig.get().combats_de_coqs;
-        return a.commission >= 0 ? Math.min(a.commission, k.commission_max_pourcent) : k.commission_pourcent;
+        return g.commission >= 0 ? Math.min(g.commission, k.commission_max_pourcent) : k.commission_pourcent;
     }
 
-    /** L'écran est-il encore valable : arène ouverte, joueur assez près ? */
-    private static View guard(ServerPlayer sp) {
+    /** Arène dont le joueur a l'écran ouvert, s'il est encore assez près (sinon message et null). */
+    private static Group guard(ServerPlayer sp) {
         View v = VIEWERS.get(sp.getUUID());
-        Arenas.Spot act = Arenas.get(sp.server).activeSpot();
-        if (v == null || act == null || !act.equals(new Arenas.Spot(v.dim(), v.master()))) { reply(sp, false, "L'arène est fermée."); return null; }
-        if (Arenas.get(sp.server).closedByOrg && !organizer(sp)) { reply(sp, false, "L'organisateur a fermé l'arène."); return null; }
-        int d = CasinoConfig.get().distance_max_blocs + 3;
+        Group g = v == null ? null : Arenas.get(sp.server).groupAt(v.dim(), v.master());
+        if (g == null || !new Spot(v.dim(), v.master()).equals(g.activeSpot())) { reply(sp, false, "L'arène est fermée."); return null; }
+        int d = CasinoConfig.get().distance_max_blocs + (g.animals ? 6 : 4);
         if (sp.level().dimension() != v.dim() || sp.blockPosition().distSqr(v.master()) > (double) d * d) { reply(sp, false, "Vous êtes trop loin."); return null; }
-        return v;
+        return g;
     }
 
     private static void reply(ServerPlayer p, boolean ok, String msg) { ModNetwork.send(p, new ModNetwork.MsgPacket(ok, msg)); }
 
     // ------------------------------------------------------------------ actions
 
-    public static final int BET = 0, COLLECT = 1, RAID = 2, REGISTER = 3, WITHDRAW = 4, TRAIN = 5;
-    /** Réglages de l'organisateur (paquet CockSettingPacket) : value / text selon le réglage. */
-    public static final int SET_OPEN = 0, SET_MANUAL = 1, SET_BENEFICIARY = 2, SET_COMMISSION = 3, SET_PLAYER = 4, START_NOW = 5;
+    public static final int BET = 0, RAID = 1, REGISTER = 2, WITHDRAW = 3, TRAIN = 4;
+    public static final int PICK = 10, OPEN_BETS = 11, START_NOW = 12, CLEAR = 13, TOGGLE_OPEN = 14, SET_COMMISSION = 15, REROLL = 16;
 
-    public static void action(ServerPlayer sp, int action, int side, long cents) {
-        View v = guard(sp);
-        if (v == null) return;
-        CasinoConfig.Coqs k = CasinoConfig.get().combats_de_coqs;
-        Arenas a = Arenas.get(sp.server);
+    public static void action(ServerPlayer sp, int action, int a, long b) {
+        Group g = guard(sp);
+        if (g == null) return;
+        if (action >= PICK) { organize(sp, g, action, a, b); return; }
+        if (!g.open() && action != RAID) { reply(sp, false, "L'organisateur a bâché l'arène."); return; }
         switch (action) {
-            case BET -> {
-                if (police(sp)) { reply(sp, false, "Un policier ne parie pas : démantelez plutôt l'arène."); return; }
-                if (phase != Phase.IDLE && phase != Phase.BETS) { reply(sp, false, "Les paris sont fermés pour ce combat."); return; }
-                if (side != 0 && side != 1) return;
-                if (fight == null) newFight();
-                long min = CasinoConfig.cents(k.mise_min_euros), max = CasinoConfig.cents(k.mise_max_euros);
-                long already = 0;
-                for (Bet b : BETS) if (b.id().equals(sp.getUUID())) {
-                    if (b.side() != side) { reply(sp, false, "Vous avez déjà parié sur l'autre coq."); return; }
-                    already += b.cents();
-                }
-                if (cents < min || already + cents > max) { reply(sp, false, "Pari entre " + CasinoService.euros(min) + " et " + CasinoService.euros(max) + " par combat."); return; }
-                if (!takeCash(sp, cents)) { reply(sp, false, "Pas assez d'espèces sur vous : ici, on ne prend pas la carte."); return; }
-                BETS.add(new Bet(sp.getUUID(), bettorName(sp), side, cents));
-                a.staked += cents;
-                a.setDirty();
-                if (phase == Phase.IDLE) {
-                    phase = Phase.BETS;
-                    deadline = System.currentTimeMillis() + k.duree_paris_secondes * 1000L;
-                }
-                message = MineNorth.displayName(sp) + " mise " + CasinoService.euros(cents) + " sur " + (side == 0 ? fight.a : fight.b).name() + ".";
-                sp.level().playSound(null, v.master(), SoundEvents.CHICKEN_AMBIENT, SoundSource.NEUTRAL, 1f, side == 0 ? 0.9f : 1.2f);
-                broadcast(sp.server);
-            }
-            case COLLECT -> {
-                if (!organizer(sp)) { reply(sp, false, "Seul le gang qui tient l'arène récupère la caisse."); return; }
-                if (a.caisse <= 0) { reply(sp, false, "La caisse est vide."); return; }
-                long c = a.caisse;
-                a.caisse = 0;
-                a.setDirty();
-                payCash(sp.server, sp.getUUID(), c);
-                reply(sp, true, "Vous récupérez la caisse : " + euros(c) + " en espèces.");
-                send(sp, -1);
-            }
+            case BET -> bet(sp, g, a, b);
             case RAID -> {
                 if (!police(sp)) {
                     reply(sp, false, CasinoConfig.get().combats_de_coqs.police_en_service && MineNorth.police().isPolice(sp)
                             ? "Prenez votre service pour intervenir." : "Action réservée à la police.");
                     return;
                 }
-                raid(sp, v);
+                raid(sp, g);
             }
-            case REGISTER -> register(sp);
-            case WITHDRAW -> withdraw(sp);
-            case TRAIN -> train(sp, side);
+            case REGISTER -> registerPet(sp, g);
+            case WITHDRAW -> withdraw(sp, g);
+            case TRAIN -> train(sp, g, a);
             default -> { }
         }
     }
 
-    // ------------------------------------------------------------------ animaux des joueurs
+    private static void bet(ServerPlayer sp, Group g, int side, long cents) {
+        Pit pit = g.pit;
+        CasinoConfig.Coqs k = CasinoConfig.get().combats_de_coqs;
+        if (police(sp)) { reply(sp, false, "Un policier ne parie pas : démantelez plutôt l'arène."); return; }
+        if (pit.phase != Phase.BETS) { reply(sp, false, pit.phase == Phase.FIGHT ? "Les paris sont fermés pour ce combat." : "Les paris ne sont pas encore ouverts."); return; }
+        if (side != 0 && side != 1) return;
+        long min = CasinoConfig.cents(k.mise_min_euros), max = CasinoConfig.cents(k.mise_max_euros);
+        long already = 0;
+        for (Bet x : pit.bets) if (x.id().equals(sp.getUUID())) {
+            if (x.side() != side) { reply(sp, false, "Vous avez déjà parié sur l'autre combattant."); return; }
+            already += x.cents();
+        }
+        if (cents % 100 != 0) { reply(sp, false, "Les paris se font en euros entiers."); return; }
+        if (cents < min || already + cents > max) { reply(sp, false, "Pari entre " + euros(min) + " et " + euros(max) + " par combat."); return; }
+        if (!takeCash(sp, cents)) { reply(sp, false, "Pas assez d'espèces sur vous : ici, on ne prend pas la carte."); return; }
+        pit.bets.add(new Bet(sp.getUUID(), MineNorth.displayName(sp), side, cents));
+        Arenas a = Arenas.get(sp.server);
+        a.staked += cents;
+        a.setDirty();
+        pit.message = MineNorth.displayName(sp) + " mise " + euros(cents) + " sur " + (side == 0 ? pit.fight.a : pit.fight.b).name() + ".";
+        Spot s = g.activeSpot();
+        sp.level().playSound(null, s.pos(), SoundEvents.CHICKEN_AMBIENT, SoundSource.NEUTRAL, 1f, side == 0 ? 0.9f : 1.2f);
+        reply(sp, true, "Pari enregistré : " + euros(already + cents) + " sur " + (side == 0 ? pit.fight.a : pit.fight.b).name() + ".");
+        broadcast(sp.server, g);
+    }
+
+    // ------------------------------------------------------------------ menu de l'organisateur
+
+    private static void organize(ServerPlayer sp, Group g, int action, int a, long b) {
+        if (!isOwner(sp, g)) { reply(sp, false, "Réservé à l'organisateur de l'arène."); return; }
+        Pit pit = g.pit;
+        CasinoConfig.Coqs k = CasinoConfig.get().combats_de_coqs;
+        MinecraftServer s = sp.server;
+        switch (action) {
+            case PICK -> {
+                if (pit.phase != Phase.IDLE && pit.phase != Phase.MATCH) { reply(sp, false, "Le combat est lancé : attendez la fin pour changer."); return; }
+                int idx = (int) b;
+                if (a != 0 && a != 1 || idx < -1 || idx >= rosterSize(g)) return;
+                if (idx >= 0 && idx == (a == 0 ? pit.pickB : pit.pickA)) { reply(sp, false, "Ce combattant est déjà dans l'autre coin."); return; }
+                if (idx >= 0 && g.animals) {
+                    Fighter f = Arenas.get(s).fighters.get(pit.queue.get(idx).pet());
+                    long rest = f == null ? 0 : f.lastFight + k.repos_animal_minutes * 60_000L - System.currentTimeMillis();
+                    if (rest > 0) { reply(sp, false, pit.queue.get(idx).name() + " se repose encore " + Math.max(1, rest / 60_000) + " min."); return; }
+                }
+                if (a == 0) pit.pickA = idx; else pit.pickB = idx;
+                buildMatch(g);
+            }
+            case OPEN_BETS -> {
+                if (!g.open()) { reply(sp, false, "Ouvrez d'abord l'arène (onglet Organisation)."); return; }
+                if (pit.phase != Phase.MATCH) { reply(sp, false, pit.phase == Phase.IDLE ? "Choisissez d'abord les deux combattants." : "Les paris sont déjà ouverts."); return; }
+                int secs = k.durees_paris_secondes.contains(a) ? a : k.durees_paris_secondes.get(0);
+                pit.phase = Phase.BETS;
+                pit.deadline = System.currentTimeMillis() + secs * 1000L;
+                pit.message = "Paris ouverts " + secs + " s : " + pit.fight.a.name() + " contre " + pit.fight.b.name() + ". Faites vos jeux !";
+                Spot spot = g.activeSpot();
+                ServerLevel l = s.getLevel(spot.dim());
+                if (l != null) l.playSound(null, spot.pos(), SoundEvents.BELL_BLOCK, SoundSource.BLOCKS, 0.8f, 1.4f);
+            }
+            case START_NOW -> {
+                if (!g.open()) { reply(sp, false, "Ouvrez d'abord l'arène."); return; }
+                if (pit.phase != Phase.MATCH && pit.phase != Phase.BETS) { reply(sp, false, "Choisissez d'abord les deux combattants."); return; }
+                Spot spot = g.activeSpot();
+                startFight(s, g, s.getLevel(spot.dim()), spot);
+                return;
+            }
+            case CLEAR -> {
+                if (pit.phase == Phase.BETS) {
+                    for (Bet x : pit.bets) payCash(s, x.id(), x.cents());
+                    pit.bets.clear();
+                } else if (pit.phase != Phase.MATCH) return;
+                pit.pickA = pit.pickB = -1;
+                buildMatch(g);
+                pit.message = "Combat annulé par l'organisateur : mises rendues.";
+            }
+            case TOGGLE_OPEN -> {
+                if (!g.closed && pit.phase != Phase.IDLE && pit.phase != Phase.MATCH && pit.phase != Phase.PAUSE) {
+                    reply(sp, false, "Un combat est en cours : bâchez après la fin.");
+                    return;
+                }
+                g.closed = !g.closed;
+                pit.message = g.closed ? "L'organisateur bâche l'arène : plus de combat pour l'instant." : "L'arène ouvre : choix des combattants en cours.";
+                if (g.closed) { removeMobs(s, g); pit.phase = pit.phase == Phase.PAUSE ? Phase.IDLE : pit.phase; }
+            }
+            case SET_COMMISSION -> {
+                if (pit.phase == Phase.BETS || pit.phase == Phase.FIGHT) { reply(sp, false, "Changez la commission entre deux combats."); return; }
+                g.commission = Math.max(0, Math.min(k.commission_max_pourcent, a / 10.0));
+            }
+            case REROLL -> {
+                if (g.animals) return;
+                if (pit.phase != Phase.IDLE && pit.phase != Phase.MATCH) { reply(sp, false, "Attendez la fin du combat."); return; }
+                g.coop.clear();
+                fillCoop(g);
+                pit.pickA = pit.pickB = -1;
+                buildMatch(g);
+                pit.message = "Nouveaux coqs au poulailler !";
+            }
+            default -> { return; }
+        }
+        Arenas.get(s).setDirty();
+        sync(s, Arenas.get(s));
+        broadcast(s, g);
+    }
+
+    /** Combat choisi par l'organisateur : les deux coins remplis = combat prêt (cotes calculées), sinon retour au choix. */
+    private static void buildMatch(Group g) {
+        Pit pit = g.pit;
+        pit.fighting[0] = pit.fighting[1] = null;
+        if (pit.pickA < 0 || pit.pickB < 0 || pit.pickA >= rosterSize(g) || pit.pickB >= rosterSize(g)) {
+            pit.fight = null;
+            pit.phase = Phase.IDLE;
+            pit.message = g.animals ? "L'organisateur choisit deux animaux parmi les inscrits." : "L'organisateur choisit deux coqs au poulailler.";
+            return;
+        }
+        Cock ca = cockAt(g, pit.pickA), cb = cockAt(g, pit.pickB);
+        if (g.animals) { pit.fighting[0] = pit.queue.get(pit.pickA); pit.fighting[1] = pit.queue.get(pit.pickB); }
+        pit.fight = new CockFight(RNG, ca, cb);
+        pit.script = List.of();
+        pit.step = 0;
+        pit.winner = -1;
+        pit.phase = Phase.MATCH;
+        pit.message = "Prochain combat : " + ca.name() + " contre " + cb.name() + ". Les paris vont ouvrir.";
+    }
+
+    private static int rosterSize(Group g) { return g.animals ? g.pit.queue.size() : g.coop.size(); }
+
+    /** Combattant n° i du poulailler, ou animal inscrit n° i (couleur tirée de son espèce, qualités de sa fiche). */
+    private static Cock cockAt(Group g, int i) {
+        if (!g.animals) return g.coop.get(i).cock;
+        Entrant e = g.pit.queue.get(i);
+        MinecraftServer s = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        Fighter f = s == null ? null : Arenas.get(s).fighters.get(e.pet());
+        int base = Math.max(1, CasinoConfig.get().combats_de_coqs.animal_qualites_depart);
+        int color = 0x404040 | (e.species().hashCode() & 0xBFBFBF);
+        return new Cock(e.name(), color, f == null ? base : f.force, f == null ? base : f.agility, f == null ? base : f.stamina);
+    }
+
+    /** Complète le poulailler d'une arène des coqs (noms tous différents). */
+    private static void fillCoop(Group g) {
+        int n = CasinoConfig.get().combats_de_coqs.coqs_au_poulailler;
+        Set<String> names = new HashSet<>();
+        for (HouseCock h : g.coop) names.add(h.cock.name());
+        boolean added = false;
+        while (g.coop.size() < n) {
+            Cock c = CockFight.random(RNG, names);
+            names.add(c.name());
+            g.coop.add(new HouseCock(c));
+            added = true;
+        }
+        if (added) {
+            MinecraftServer s = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+            if (s != null) Arenas.get(s).setDirty();
+        }
+    }
+
+    private static String euros(long cents) {
+        return (cents / 100) + (cents % 100 == 0 ? "" : "," + String.format("%02d", cents % 100)) + " €";
+    }
+
+    // ------------------------------------------------------------------ animaux des joueurs (grande arène)
 
     /** Animal apprivoisé du joueur le plus proche (pas un chien de police), ou null. */
     private static TamableAnimal nearestPet(ServerPlayer sp) {
@@ -513,51 +759,57 @@ public final class CockfightService {
         return t;
     }
 
-    private static boolean isEntrant(UUID pet) {
-        for (Entrant e : ENTRANTS) if (e != null && e.pet().equals(pet)) return true;
-        return false;
+    private static int queued(Group g, UUID pet) {
+        for (int i = 0; i < g.pit.queue.size(); i++) if (g.pit.queue.get(i).pet().equals(pet)) return i;
+        return -1;
     }
 
-    private static void register(ServerPlayer sp) {
+    private static void registerPet(ServerPlayer sp, Group g) {
         CasinoConfig.Coqs k = CasinoConfig.get().combats_de_coqs;
+        if (!g.animals) { reply(sp, false, "Ici, ce sont les coqs de l'organisateur qui se battent : cherchez la grande arène."); return; }
         if (police(sp)) { reply(sp, false, "Un policier en service n'inscrit pas d'animal."); return; }
-        if (phase != Phase.IDLE || !BETS.isEmpty()) { reply(sp, false, "Les paris sont lancés : inscrivez votre animal pour le combat suivant."); return; }
-        for (Entrant e : ENTRANTS) if (e != null && e.owner().equals(sp.getUUID())) { reply(sp, false, "Vous avez déjà un animal inscrit."); return; }
         TamableAnimal pet = nearestPet(sp);
         if (pet == null) { reply(sp, false, "Aucun de vos animaux apprivoisés à moins de " + k.distance_animal_blocs + " blocs."); return; }
+        if (queued(g, pet.getUUID()) >= 0) { reply(sp, false, "Il est déjà inscrit."); return; }
+        if (g.pit.queue.size() >= k.animaux_inscrits_max) { reply(sp, false, "La liste des inscrits est complète (" + k.animaux_inscrits_max + ")."); return; }
         Arenas a = Arenas.get(sp.server);
         Fighter f = fighter(a, pet, sp);
-        long rest = f.lastFight + k.repos_animal_minutes * 60_000L - System.currentTimeMillis();
-        if (rest > 0) { reply(sp, false, f.name + " se repose encore " + Math.max(1, rest / 60_000) + " min."); return; }
-        int side = ENTRANTS[0] == null ? 0 : ENTRANTS[1] == null ? 1 : -1;
-        if (side < 0) { reply(sp, false, "Les deux places sont prises."); return; }
-        ENTRANTS[side] = new Entrant(pet.getUUID(), sp.getUUID(), MineNorth.displayName(sp), f.name, f.species, snapshot(pet));
-        newFight();
-        message = MineNorth.displayName(sp) + " inscrit " + f.name + " (" + f.species + ") côté " + (side == 0 ? "rouge" : "bleu") + " !";
+        g.pit.queue.add(new Entrant(pet.getUUID(), sp.getUUID(), MineNorth.displayName(sp), f.name, f.species, snapshot(pet)));
+        g.pit.message = MineNorth.displayName(sp) + " inscrit " + f.name + " (" + f.species + ").";
         sp.serverLevel().sendParticles(ParticleTypes.ANGRY_VILLAGER, pet.getX(), pet.getY() + pet.getBbHeight(), pet.getZ(), 3, 0.2, 0.1, 0.2, 0);
-        broadcast(sp.server);
+        reply(sp, true, f.name + " est inscrit : l'organisateur peut le choisir pour un combat.");
+        broadcast(sp.server, g);
     }
 
-    private static void withdraw(ServerPlayer sp) {
-        if (phase != Phase.IDLE || !BETS.isEmpty()) { reply(sp, false, "Trop tard : des paris sont engagés sur ce combat."); return; }
-        for (int i = 0; i < 2; i++) {
-            if (ENTRANTS[i] == null || !ENTRANTS[i].owner().equals(sp.getUUID())) continue;
-            message = ENTRANTS[i].name() + " est retiré du combat.";
-            ENTRANTS[i] = null;
-            newFight();
-            broadcast(sp.server);
+    private static void withdraw(ServerPlayer sp, Group g) {
+        Pit pit = g.pit;
+        for (int i = 0; i < pit.queue.size(); i++) {
+            Entrant e = pit.queue.get(i);
+            if (!e.owner().equals(sp.getUUID())) continue;
+            boolean picked = i == pit.pickA || i == pit.pickB;
+            if (picked && pit.phase != Phase.IDLE && pit.phase != Phase.MATCH) { reply(sp, false, "Trop tard : il est engagé dans le combat."); return; }
+            pit.queue.remove(i);
+            // les choix de l'organisateur suivent le décalage de la liste
+            pit.pickA = shift(pit.pickA, i);
+            pit.pickB = shift(pit.pickB, i);
+            if (pit.phase == Phase.IDLE || pit.phase == Phase.MATCH) buildMatch(g);
+            pit.message = e.name() + " est retiré de l'arène.";
+            broadcast(sp.server, g);
             return;
         }
         reply(sp, false, "Vous n'avez pas d'animal inscrit.");
     }
 
+    private static int shift(int pick, int removed) { return pick == removed ? -1 : pick > removed ? pick - 1 : pick; }
+
     /** Entraînement : +1 dans une qualité (0 force, 1 agilité, 2 endurance), payé en espèces, une séance par délai. */
-    private static void train(ServerPlayer sp, int stat) {
+    private static void train(ServerPlayer sp, Group g, int stat) {
         CasinoConfig.Coqs k = CasinoConfig.get().combats_de_coqs;
-        if (stat < 0 || stat > 2) return;
+        if (stat < 0 || stat > 2 || !g.animals) return;
         TamableAnimal pet = nearestPet(sp);
         if (pet == null) { reply(sp, false, "Amenez votre animal (moins de " + k.distance_animal_blocs + " blocs) pour l'entraîner."); return; }
-        if (isEntrant(pet.getUUID())) { reply(sp, false, "Il est inscrit au combat : retirez-le d'abord."); return; }
+        int q = queued(g, pet.getUUID());
+        if (q >= 0 && (q == g.pit.pickA || q == g.pit.pickB) && g.pit.phase != Phase.IDLE) { reply(sp, false, "Il est engagé dans le combat : entraînez-le après."); return; }
         Arenas a = Arenas.get(sp.server);
         Fighter f = fighter(a, pet, sp);
         long wait = f.lastTrain + k.entrainement_minutes * 60_000L - System.currentTimeMillis();
@@ -574,136 +826,66 @@ public final class CockfightService {
         l.playSound(null, pet.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.NEUTRAL, 0.5f, 1.6f);
         reply(sp, true, f.name + " : " + new String[]{"force", "agilité", "endurance"}[stat] + " " + f.stat(stat) + "/" + k.animal_qualite_max
                 + " (" + euros(cost) + ").");
-        send(sp, -1);
+        if (q >= 0 && g.pit.phase == Phase.MATCH) buildMatch(g);   // cotes recalculées
+        broadcast(sp.server, g);
     }
 
-    // ------------------------------------------------------------------ menu de l'organisateur
+    // ------------------------------------------------------------------ police, annulation
 
-    public static void setting(ServerPlayer sp, int kind, int value, String text) {
-        View v = VIEWERS.get(sp.getUUID());
-        if (v == null) return;
-        if (!organizer(sp)) { reply(sp, false, "Réservé à l'organisateur de l'arène."); return; }
-        Arenas a = Arenas.get(sp.server);
-        CasinoConfig.Coqs k = CasinoConfig.get().combats_de_coqs;
-        switch (kind) {
-            case SET_OPEN -> {
-                if (!a.closedByOrg && (phase == Phase.BETS || phase == Phase.FIGHT || !BETS.isEmpty())) {
-                    reply(sp, false, "Un combat est en cours : fermez après la fin.");
-                    return;
-                }
-                a.closedByOrg = !a.closedByOrg;
-                message = a.closedByOrg ? "L'organisateur bâche l'arène : plus de combat pour l'instant." : "L'arène rouvre : faites vos jeux !";
-                if (a.closedByOrg) { ENTRANTS[0] = ENTRANTS[1] = null; removeChickens(sp.server); phase = Phase.IDLE; fight = null; }
-            }
-            case SET_MANUAL -> {
-                a.manual = !a.manual;
-                message = a.manual ? "Les combats partent au signal de l'organisateur." : "Les combats partent à la fin du compte à rebours.";
-            }
-            case SET_BENEFICIARY -> {
-                if (value < 0 || value > 3) return;
-                if (value == 3 && a.beneficiaryId == null) { reply(sp, false, "Désignez d'abord un joueur (champ « Joueur »)."); return; }
-                a.beneficiary = value;
-            }
-            case SET_COMMISSION -> {
-                double pct = Math.max(0, Math.min(k.commission_max_pourcent, value / 10.0));
-                if (phase == Phase.BETS || phase == Phase.FIGHT) { reply(sp, false, "Changez la commission entre deux combats."); return; }
-                a.commission = pct;
-            }
-            case SET_PLAYER -> {
-                ServerPlayer t = sp.server.getPlayerList().getPlayerByName(text == null ? "" : text.trim());
-                if (t == null) { reply(sp, false, "Joueur introuvable (pseudo exact, connecté)."); return; }
-                a.beneficiaryId = t.getUUID();
-                a.beneficiaryName = MineNorth.displayName(t);
-                a.beneficiary = 3;
-            }
-            case START_NOW -> {
-                if (a.closedByOrg) { reply(sp, false, "Rouvrez d'abord l'arène."); return; }
-                if (phase != Phase.IDLE && phase != Phase.BETS) { reply(sp, false, "Un combat est déjà en cours."); return; }
-                Arenas.Spot spot = a.activeSpot();
-                if (spot == null) return;
-                if (fight == null) newFight();
-                startFight(sp.server, sp.server.getLevel(spot.dim()), spot);
-                return;
-            }
-            default -> { return; }
-        }
-        a.setDirty();
-        sync(sp.server, a);
-        broadcast(sp.server);
-    }
-
-    private static String euros(long cents) {
-        return (cents / 100) + (cents % 100 == 0 ? "" : "," + String.format("%02d", cents % 100)) + " €";
-    }
-
-    /** Descente de police : mises et caisse saisies (trésor public), combat arrêté, arène fermée un moment, liste des parieurs. */
-    private static void raid(ServerPlayer officer, View v) {
+    /** Descente de police : paris saisis (trésor public), combat arrêté, arènes de l'organisateur fermées un moment, liste des parieurs. */
+    private static void raid(ServerPlayer officer, Group g) {
         MinecraftServer s = officer.server;
         Arenas a = Arenas.get(s);
-        CasinoConfig.Coqs k = CasinoConfig.get().combats_de_coqs;
+        Pit pit = g.pit;
+        Spot spot = g.activeSpot();
         long bets = 0;
         List<String> names = new ArrayList<>();
-        for (Bet b : BETS) { bets += b.cents(); if (!names.contains(b.name())) names.add(b.name()); }
-        long seized = bets + a.caisse;
-        if (seized > 0) MineNorth.treasury().collect(s, seized, "police:saisie_combats_de_coqs");
-        a.seized += seized;
-        a.caisse = 0;
-        BETS.clear();
+        for (Bet b : pit.bets) { bets += b.cents(); if (!names.contains(b.name())) names.add(b.name()); }
+        if (bets > 0) MineNorth.treasury().collect(s, bets, "police:saisie_combats_de_coqs");
+        a.seized += bets;
+        pit.bets.clear();
         Component alert = Component.literal("§c§l🚨 DESCENTE DE POLICE ! §r§cL'arène est démantelée, les paris sont saisis.");
         for (ServerPlayer p : s.getPlayerList().getPlayers())
-            if (p.level().dimension() == v.dim() && p.blockPosition().distSqr(v.master()) < 40 * 40) p.sendSystemMessage(alert);
-        officer.sendSystemMessage(Component.literal("§9[Police] §fSaisie : §e" + euros(seized) + " §f(mises " + euros(bets) + ", caisse "
-                + euros(seized - bets) + "). " + (names.isEmpty() ? "Aucun parieur en cours." : "Parieurs : §e" + String.join("§f, §e", names))));
-        ServerLevel l = s.getLevel(v.dim());
+            if (p.level().dimension() == spot.dim() && p.blockPosition().distSqr(spot.pos()) < 40 * 40) p.sendSystemMessage(alert);
+        officer.sendSystemMessage(Component.literal("§9[Police] §fSaisie : §e" + euros(bets) + "§f. Organisateur : §e"
+                + (g.ownerName.isEmpty() ? "inconnu" : g.ownerName) + "§f. " + (names.isEmpty() ? "Aucun parieur en cours." : "Parieurs : §e" + String.join("§f, §e", names))));
+        ServerLevel l = s.getLevel(spot.dim());
         if (l != null) {
-            l.playSound(null, v.master(), SoundEvents.BELL_BLOCK, SoundSource.BLOCKS, 1.5f, 0.8f);
-            for (UUID id : CHICKENS) {
+            l.playSound(null, spot.pos(), SoundEvents.BELL_BLOCK, SoundSource.BLOCKS, 1.5f, 0.8f);
+            for (UUID id : pit.mobs) {
                 Entity c = id == null ? null : l.getEntity(id);
                 if (c != null) l.sendParticles(ParticleTypes.POOF, c.getX(), c.getY() + 0.3, c.getZ(), 8, 0.2, 0.2, 0.2, 0.02);
             }
         }
-        removeChickens(s);
-        ENTRANTS[0] = ENTRANTS[1] = null;
-        phase = Phase.IDLE;
-        fight = null;
-        message = "Descente de police : arène démantelée.";
-        broadcast(s);
-        VIEWERS.clear();
-        a.active = -1;
-        a.closedUntil = System.currentTimeMillis() + k.fermeture_apres_descente_minutes * 60_000L;
+        removeMobs(s, g);
+        pit.queue.clear();
+        pit.pickA = pit.pickB = -1;
+        buildMatch(g);
+        pit.message = "Descente de police : arène démantelée.";
+        broadcast(s, g);
+        closeViewers(g);
+        g.closedUntil = System.currentTimeMillis() + CasinoConfig.get().combats_de_coqs.fermeture_apres_descente_minutes * 60_000L;
         a.setDirty();
         sync(s, a);
-        LOG.info("[Casino] Descente de police sur l'arène {} par {} : {} cts saisis", v.master(), officer.getGameProfile().getName(), seized);
+        LOG.info("[Casino] Descente de police sur l'arène {} ({}) par {} : {} cts saisis", spot.pos(), g.ownerName, officer.getGameProfile().getName(), bets);
     }
 
     /** Combat annulé (arène démontée, serveur arrêté) : chacun récupère sa mise. */
-    private static void cancel(MinecraftServer s, String why) {
-        for (Bet b : BETS) payCash(s, b.id(), b.cents());
-        BETS.clear();
-        removeChickens(s);
-        ENTRANTS[0] = ENTRANTS[1] = null;
-        phase = Phase.IDLE;
-        fight = null;
-        message = why;
-        broadcast(s);
+    private static void cancel(MinecraftServer s, Group g, String why) {
+        Pit pit = g.pit;
+        for (Bet b : pit.bets) payCash(s, b.id(), b.cents());
+        pit.bets.clear();
+        removeMobs(s, g);
+        pit.pickA = pit.pickB = -1;
+        buildMatch(g);
+        pit.message = why;
+        broadcast(s, g);
     }
 
-    /** Combattant d'un animal inscrit (couleur tirée de son espèce), d'après sa fiche. */
-    private static CockFight.Cock cockOf(Entrant e) {
-        if (e == null) return null;
+    private static void closeViewers(Group g) {
         MinecraftServer s = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
-        Fighter f = s == null ? null : Arenas.get(s).fighters.get(e.pet());
-        int base = Math.max(1, CasinoConfig.get().combats_de_coqs.animal_qualites_depart);
-        int color = 0x404040 | (e.species().hashCode() & 0xBFBFBF);
-        return new CockFight.Cock(e.name(), color, f == null ? base : f.force, f == null ? base : f.agility, f == null ? base : f.stamina);
-    }
-
-    private static void newFight() {
-        fight = new CockFight(RNG, cockOf(ENTRANTS[0]), cockOf(ENTRANTS[1]));
-        script = List.of();
-        step = 0;
-        winner = -1;
-        message = "Prochain combat : " + fight.a.name() + " contre " + fight.b.name() + ". Faites vos jeux !";
+        if (s == null) return;
+        VIEWERS.entrySet().removeIf(e -> Arenas.get(s).groupAt(e.getValue().dim(), e.getValue().master()) == g);
     }
 
     // ------------------------------------------------------------------ horloge
@@ -713,175 +895,174 @@ public final class CockfightService {
         if (e.phase != TickEvent.Phase.END) return;
         MinecraftServer s = e.getServer();
         long tickNo = s.getTickCount();
-        if (tickNo % 20 == 0) rotation(s);
-        if (phase == Phase.IDLE) return;
+        Arenas a = Arenas.get(s);
+        if (tickNo % 20 == 0) rotation(s, a);
         long now = System.currentTimeMillis();
-        Arenas.Spot spot = Arenas.get(s).activeSpot();
-        if (spot == null) { cancel(s, "L'arène est fermée : mises rendues."); return; }
-        ServerLevel l = s.getLevel(spot.dim());
-        switch (phase) {
-            case BETS -> {
-                if (now < deadline || Arenas.get(s).manual) { if (tickNo % 20 == 0) broadcast(s); return; }
-                startFight(s, l, spot);
-            }
-            case FIGHT -> {
-                if (l == null) return;
-                if (hopper >= 0 && tickNo >= hopBackTick) { place(l, spot); hopper = -1; }
-                if (tickNo < nextStepTick) return;
-                if (step < script.size()) {
-                    playExchange(s, l, spot, script.get(step));
-                    step++;
-                    nextStepTick = tickNo + 14;
-                    return;
+        for (Group g : new ArrayList<>(a.groups)) {
+            Pit pit = g.pit;
+            if (pit.phase == Phase.IDLE || pit.phase == Phase.MATCH) continue;
+            Spot spot = g.activeSpot();
+            if (spot == null) { cancel(s, g, "L'arène est fermée : mises rendues."); continue; }
+            ServerLevel l = s.getLevel(spot.dim());
+            switch (pit.phase) {
+                case BETS -> {
+                    if (now < pit.deadline) { if (tickNo % 20 == 0) broadcast(s, g); continue; }
+                    startFight(s, g, l, spot);
                 }
-                settle(s, l, spot);
+                case FIGHT -> {
+                    if (l == null) continue;
+                    if (pit.hopper >= 0 && tickNo >= pit.hopBackTick) { place(l, g, spot); pit.hopper = -1; }
+                    if (tickNo < pit.nextStepTick) continue;
+                    if (pit.step < pit.script.size()) {
+                        playExchange(s, g, l, spot, pit.script.get(pit.step));
+                        pit.step++;
+                        pit.nextStepTick = tickNo + 14;
+                        continue;
+                    }
+                    settle(s, g, l, spot);
+                }
+                case PAUSE -> {
+                    if (now < pit.deadline) continue;
+                    removeMobs(s, g);
+                    pit.pickA = pit.pickB = -1;
+                    buildMatch(g);
+                    broadcast(s, g);
+                }
+                default -> { }
             }
-            case PAUSE -> {
-                if (now < deadline) return;
-                removeChickens(s);
-                phase = Phase.IDLE;
-                newFight();
-                broadcast(s);
-            }
-            default -> { }
         }
     }
 
-    private static void startFight(MinecraftServer s, ServerLevel l, Arenas.Spot spot) {
-        phase = Phase.FIGHT;
-        script = fight.simulate(RNG);
-        step = 0;
-        nextStepTick = s.getTickCount() + 40;
-        message = "Les coqs entrent dans l'arène… Les paris sont fermés !";
+    private static void startFight(MinecraftServer s, Group g, ServerLevel l, Spot spot) {
+        Pit pit = g.pit;
+        pit.phase = Phase.FIGHT;
+        pit.script = pit.fight.simulate(RNG);
+        pit.step = 0;
+        pit.nextStepTick = s.getTickCount() + 40;
+        pit.message = (g.animals ? "Les combattants entrent dans l'arène…" : "Les coqs entrent dans l'arène…") + " Les paris sont fermés !";
         if (l != null) {
-            spawnChickens(l, spot);
-            l.playSound(null, spot.pos(), SoundEvents.CHICKEN_AMBIENT, SoundSource.NEUTRAL, 1.5f, 0.6f);
+            spawnMobs(l, g, spot);
+            l.playSound(null, spot.pos(), g.animals ? SoundEvents.WOLF_GROWL : SoundEvents.CHICKEN_AMBIENT, SoundSource.NEUTRAL, 1.5f, 0.6f);
         }
-        if (RNG.nextDouble() < CasinoConfig.get().combats_de_coqs.chance_alerte_police) alertPolice(s, spot.dim(), spot.pos());
+        if (RNG.nextDouble() < CasinoConfig.get().combats_de_coqs.chance_alerte_police) alertPolice(s, g, spot);
         Arenas a = Arenas.get(s);
         a.fights++;
         a.setDirty();
-        broadcast(s);
+        broadcast(s, g);
     }
 
-    private static boolean isChicken(Entity e) { return e instanceof Chicken; }
-
-    private static void playExchange(MinecraftServer s, ServerLevel l, Arenas.Spot spot, Exchange x) {
-        Entity att = chicken(l, x.attacker()), def = chicken(l, 1 - x.attacker());
+    private static void playExchange(MinecraftServer s, Group g, ServerLevel l, Spot spot, Exchange x) {
+        Pit pit = g.pit;
+        Entity att = mob(l, g, x.attacker()), def = mob(l, g, 1 - x.attacker());
         if (att != null && def != null) {
             // l'attaquant bondit sur l'autre, revient à sa place 7 ticks plus tard
             Vec3 to = def.position().subtract(att.position()).scale(0.6).add(att.position());
             att.teleportTo(to.x, att.getY() + 0.35, to.z);
             att.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, def.getEyePosition());
-            hopper = x.attacker();
-            hopBackTick = s.getTickCount() + 7;
+            pit.hopper = x.attacker();
+            pit.hopBackTick = s.getTickCount() + 7;
             if (x.damage() > 0) {
                 l.broadcastDamageEvent(def, l.damageSources().generic());
-                if (isChicken(def)) l.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.FEATHER)), def.getX(), def.getY() + 0.4, def.getZ(),
-                        x.crit() ? 14 : 6, 0.15, 0.15, 0.15, 0.08);
+                if (def instanceof Chicken) l.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.FEATHER)), def.getX(), def.getY() + 0.4,
+                        def.getZ(), x.crit() ? 14 : 6, 0.15, 0.15, 0.15, 0.08);
                 else l.sendParticles(ParticleTypes.DAMAGE_INDICATOR, def.getX(), def.getY() + def.getBbHeight() * 0.6, def.getZ(), x.crit() ? 8 : 3, 0.2, 0.2, 0.2, 0.1);
                 if (x.crit()) l.sendParticles(ParticleTypes.CRIT, def.getX(), def.getY() + 0.5, def.getZ(), 10, 0.2, 0.2, 0.2, 0.2);
             } else {
                 l.sendParticles(ParticleTypes.CLOUD, def.getX(), def.getY() + 0.1, def.getZ(), 3, 0.1, 0.05, 0.1, 0.01);
             }
         }
-        boolean chick = def == null || isChicken(def);
-        l.playSound(null, spot.pos(), x.damage() > 0 ? (chick ? SoundEvents.CHICKEN_HURT : SoundEvents.PLAYER_ATTACK_STRONG) : SoundEvents.PLAYER_ATTACK_WEAK, SoundSource.NEUTRAL, 1f,
-                0.8f + RNG.nextFloat() * 0.5f);
-        CockFight.Cock a = x.attacker() == 0 ? fight.a : fight.b, d = x.attacker() == 0 ? fight.b : fight.a;
-        message = x.damage() == 0 ? d.name() + " esquive l'attaque de " + a.name() + " !"
+        boolean chick = def == null || def instanceof Chicken;
+        l.playSound(null, spot.pos(), x.damage() > 0 ? (chick ? SoundEvents.CHICKEN_HURT : SoundEvents.PLAYER_ATTACK_STRONG) : SoundEvents.PLAYER_ATTACK_WEAK,
+                SoundSource.NEUTRAL, 1f, 0.8f + RNG.nextFloat() * 0.5f);
+        Cock a = x.attacker() == 0 ? pit.fight.a : pit.fight.b, d = x.attacker() == 0 ? pit.fight.b : pit.fight.a;
+        pit.message = x.damage() == 0 ? d.name() + " esquive l'attaque de " + a.name() + " !"
                 : (x.crit() ? "COUP CRITIQUE ! " : "") + a.name() + " frappe " + d.name() + " (-" + x.damage() + ").";
-        int seq = step;
-        for (ServerPlayer p : viewers(s)) send(p, seq);
+        int seq = pit.step;
+        for (ServerPlayer p : viewers(s, g)) send(p, g, seq);
     }
 
-    /** Fin du combat : le perdant s'effondre, les gagnants se partagent les mises perdantes (moins la commission). */
-    private static void settle(MinecraftServer s, ServerLevel l, Arenas.Spot spot) {
+    /** Fin du combat : le perdant s'effondre, les gagnants se partagent les mises perdantes, l'organisateur touche sa commission. */
+    private static void settle(MinecraftServer s, Group g, ServerLevel l, Spot spot) {
         CasinoConfig.Coqs k = CasinoConfig.get().combats_de_coqs;
         Arenas a = Arenas.get(s);
-        winner = CockFight.winner(script);
-        CockFight.Cock w = winner == 0 ? fight.a : fight.b;
-        Entity loser = chicken(l, 1 - winner);
+        Pit pit = g.pit;
+        pit.winner = CockFight.winner(pit.script);
+        Cock w = pit.winner == 0 ? pit.fight.a : pit.fight.b;
+        Entity loser = mob(l, g, 1 - pit.winner);
         if (loser != null) l.broadcastEntityEvent(loser, (byte) 3);   // animation de mort côté client
-        l.playSound(null, spot.pos(), SoundEvents.CHICKEN_DEATH, SoundSource.NEUTRAL, 1.2f, 0.8f);
+        l.playSound(null, spot.pos(), g.animals ? SoundEvents.WOLF_WHINE : SoundEvents.CHICKEN_DEATH, SoundSource.NEUTRAL, 1.2f, 0.8f);
         l.playSound(null, spot.pos(), SoundEvents.PLAYER_LEVELUP, SoundSource.NEUTRAL, 0.6f, 1.4f);
         long poolW = 0, poolL = 0;
-        for (Bet b : BETS) if (b.side() == winner) poolW += b.cents(); else poolL += b.cents();
+        for (Bet b : pit.bets) if (b.side() == pit.winner) poolW += b.cents(); else poolL += b.cents();
         long commission = 0;
         if (poolW == 0) {
-            for (Bet b : BETS) payCash(s, b.id(), b.cents());
-            message = w.name() + " gagne ! Personne n'avait misé sur lui : mises rendues.";
+            for (Bet b : pit.bets) payCash(s, b.id(), b.cents());
+            pit.message = w.name() + " gagne ! Personne n'avait misé sur lui : mises rendues.";
         } else {
-            commission = Math.round(poolL * commission(a) / 100.0);
+            commission = Math.round(poolL * commission(g) / 100.0);
             long share = poolL - commission, paidOut = 0;
             Map<UUID, Long> gains = new LinkedHashMap<>();
-            for (Bet b : BETS) {
-                if (b.side() != winner) continue;
-                long g = b.cents() + share * b.cents() / poolW;   // arrondi au centime inférieur : le reste va à la commission
-                gains.merge(b.id(), g, Long::sum);
-                paidOut += g;
+            for (Bet b : pit.bets) {
+                if (b.side() != pit.winner) continue;
+                long gain = b.cents() + share * b.cents() / poolW;   // arrondi au centime inférieur : le reste va à la commission
+                gains.merge(b.id(), gain, Long::sum);
+                paidOut += gain;
             }
             commission = poolW + poolL - paidOut;
-            gains.forEach((id, g) -> {
-                payCash(s, id, g);
+            gains.forEach((id, gain) -> {
+                payCash(s, id, gain);
                 ServerPlayer p = s.getPlayerList().getPlayer(id);
-                if (p != null) p.displayClientMessage(Component.literal("§a" + w.name() + " gagne : vous touchez §e" + euros(g) + "§a en espèces."), true);
+                if (p != null) p.displayClientMessage(Component.literal("§a" + w.name() + " gagne : vous touchez §e" + euros(gain) + "§a en espèces."), true);
             });
-            message = w.name() + " gagne ! " + gains.size() + " gagnant(s) se partagent " + euros(poolW + poolL - commission) + ".";
+            pit.message = w.name() + " gagne ! " + gains.size() + " gagnant(s) se partagent " + euros(poolW + poolL - commission) + ".";
         }
-        if (commission > 0) payCommission(s, a, commission, ENTRANTS[winner]);
+        if (commission > 0) {
+            // la commission revient à l'organisateur (espèces ; hors ligne : à sa prochaine connexion). Arène sans organisateur : trésor.
+            if (g.owner != null) {
+                payCash(s, g.owner, commission);
+                g.earned += commission;
+                ServerPlayer o = s.getPlayerList().getPlayer(g.owner);
+                if (o != null) o.sendSystemMessage(Component.literal("§6Votre commission sur le combat : §e" + euros(commission) + "§6 en espèces."));
+            } else {
+                MineNorth.treasury().collect(s, commission, "casino:combats_de_coqs");
+            }
+        }
+        // palmarès
         long nowMs = System.currentTimeMillis();
         for (int i = 0; i < 2; i++) {
-            Entrant e = ENTRANTS[i];
+            boolean won = i == pit.winner;
+            if (!g.animals) {
+                int idx = i == 0 ? pit.pickA : pit.pickB;
+                if (idx >= 0 && idx < g.coop.size()) { if (won) g.coop.get(idx).wins++; else g.coop.get(idx).losses++; }
+                continue;
+            }
+            Entrant e = pit.fighting[i];
             Fighter f = e == null ? null : a.fighters.get(e.pet());
             if (f == null) continue;
-            if (i == winner) f.wins++; else f.losses++;
+            if (won) f.wins++; else f.losses++;
             f.lastFight = nowMs;
             ServerPlayer o = s.getPlayerList().getPlayer(e.owner());
-            if (o != null) o.sendSystemMessage(Component.literal(i == winner ? "§6🏆 " + f.name + " remporte le combat ! (" + f.wins + " victoire(s))"
+            if (o != null) o.sendSystemMessage(Component.literal(won ? "§6🏆 " + f.name + " remporte le combat ! (" + f.wins + " victoire(s))"
                     : "§7" + f.name + " a perdu ce combat. Il se repose avant le prochain."));
         }
-        ENTRANTS[0] = ENTRANTS[1] = null;   // une inscription vaut pour un combat
-        a.setDirty();
-        BETS.clear();
-        phase = Phase.PAUSE;
-        deadline = System.currentTimeMillis() + k.pause_secondes * 1000L;
-        for (ServerPlayer p : viewers(s)) send(p, step);
-    }
-
-    /** Commission : à qui l'organisateur l'a attribuée (caisse du gang, maître du vainqueur, moitié / moitié, joueur désigné). */
-    private static void payCommission(MinecraftServer s, Arenas a, long commission, Entrant win) {
-        long toOwner = switch (a.beneficiary) {
-            case 1 -> win == null ? 0 : commission;
-            case 2 -> win == null ? 0 : commission / 2;
-            default -> 0;
-        };
-        long toPlayer = a.beneficiary == 3 && a.beneficiaryId != null ? commission : 0;
-        long rest = commission - toOwner - toPlayer;
-        if (toOwner > 0) {
-            payCash(s, win.owner(), toOwner);
-            ServerPlayer o = s.getPlayerList().getPlayer(win.owner());
-            if (o != null) o.sendSystemMessage(Component.literal("§6Prime du maître : §e" + euros(toOwner) + "§6 en espèces."));
-        }
-        if (toPlayer > 0) {
-            payCash(s, a.beneficiaryId, toPlayer);
-            ServerPlayer o = s.getPlayerList().getPlayer(a.beneficiaryId);
-            if (o != null) o.sendSystemMessage(Component.literal("§6Votre part des paris de l'arène : §e" + euros(toPlayer) + "§6."));
-        }
-        if (rest > 0) {
-            if (CasinoConfig.get().combats_de_coqs.gang_organisateur.isBlank()) MineNorth.treasury().collect(s, rest, "casino:combats_de_coqs");
-            else a.caisse += rest;
+        if (g.animals) {
+            // les deux animaux qui ont combattu quittent la liste des inscrits (à réinscrire après leur repos)
+            for (Entrant e : pit.fighting) if (e != null) pit.queue.removeIf(q -> q.pet().equals(e.pet()));
         }
         a.setDirty();
+        pit.bets.clear();
+        pit.phase = Phase.PAUSE;
+        pit.deadline = System.currentTimeMillis() + k.pause_secondes * 1000L;
+        for (ServerPlayer p : viewers(s, g)) send(p, g, pit.step);
     }
 
     // ------------------------------------------------------------------ les combattants dans l'arène (sans IA, invulnérables)
 
     /** Centre de l'arène et axe de la longueur (vers la droite du joueur qui l'a posée). */
-    private static Vec3[] layout(ServerLevel l, Arenas.Spot spot) {
+    private static Vec3[] layout(ServerLevel l, Spot spot) {
         BlockState st = l.getBlockState(spot.pos());
-        Direction f = st.hasProperty(CasinoBlock.FACING) ? st.getValue(CasinoBlock.FACING) : Direction.NORTH;
-        CasinoBlock cb = (CasinoBlock) ModBlocks.ARENA.get();
+        if (!(st.getBlock() instanceof ArenaBlock cb)) return new Vec3[]{Vec3.atBottomCenterOf(spot.pos()), new Vec3(1, 0, 0)};
+        Direction f = st.getValue(CasinoBlock.FACING);
         BlockPos far = cb.partPos(spot.pos(), f, cb.game.parts() - 1);
         Vec3 center = new Vec3((spot.pos().getX() + far.getX()) / 2.0 + 0.5, spot.pos().getY() + 0.15, (spot.pos().getZ() + far.getZ()) / 2.0 + 0.5);
         BlockPos right = cb.partPos(spot.pos(), f, 1);
@@ -889,35 +1070,37 @@ public final class CockfightService {
         return new Vec3[]{center, axis};
     }
 
-    private static void spawnChickens(ServerLevel l, Arenas.Spot spot) {
-        removeChickens(l.getServer());
+    private static void spawnMobs(ServerLevel l, Group g, Spot spot) {
+        removeMobs(l.getServer(), g);
         if (!l.isLoaded(spot.pos())) return;
-        CockFight.Cock[] cocks = {fight.a, fight.b};
+        Pit pit = g.pit;
+        Cock[] cocks = {pit.fight.a, pit.fight.b};
         for (int i = 0; i < 2; i++) {
-            Entity e = ENTRANTS[i] == null ? null : EntityType.create(ENTRANTS[i].snapshot().copy(), l).orElse(null);
+            Entrant en = pit.fighting[i];
+            Entity e = en == null ? null : EntityType.create(en.snapshot().copy(), l).orElse(null);
             if (e == null) e = EntityType.CHICKEN.create(l);
             if (e == null) continue;
             if (e instanceof Mob c) { c.setNoAi(true); c.setPersistenceRequired(); }
             if (e instanceof TamableAnimal t) { t.setOrderedToSit(false); t.setInSittingPose(false); }
-            Entity c = e;
-            c.setInvulnerable(true);
-            c.addTag(TAG);
+            e.setInvulnerable(true);
+            e.addTag(TAG);
             int rgb = i == 0 ? 0xFF5555 : 0x55AAFF;
-            c.setCustomName(Component.literal(cocks[i].name()).withStyle(st -> st.withColor(TextColor.fromRgb(rgb))));
-            c.setCustomNameVisible(true);
-            CHICKENS[i] = c.getUUID();
-            l.addFreshEntity(c);
+            e.setCustomName(Component.literal(cocks[i].name()).withStyle(st -> st.withColor(TextColor.fromRgb(rgb))));
+            e.setCustomNameVisible(true);
+            pit.mobs[i] = e.getUUID();
+            l.addFreshEntity(e);
         }
-        place(l, spot);
+        place(l, g, spot);
     }
 
-    /** Remet les deux coqs face à face. */
-    private static void place(ServerLevel l, Arenas.Spot spot) {
+    /** Remet les deux combattants face à face (plus écartés dans la grande arène). */
+    private static void place(ServerLevel l, Group g, Spot spot) {
         Vec3[] lay = layout(l, spot);
+        double gap = g.animals ? 2.8 : 1.6;
         for (int i = 0; i < 2; i++) {
-            Entity c = chicken(l, i);
+            Entity c = mob(l, g, i);
             if (c == null) continue;
-            Vec3 p = lay[0].add(lay[1].scale(i == 0 ? -1.6 : 1.6));
+            Vec3 p = lay[0].add(lay[1].scale(i == 0 ? -gap : gap));
             float yaw = (float) Math.toDegrees(Math.atan2(-lay[1].x * (i == 0 ? 1 : -1), lay[1].z * (i == 0 ? 1 : -1)));
             c.moveTo(p.x, p.y, p.z, yaw, 0);
             c.setYHeadRot(yaw);
@@ -925,79 +1108,90 @@ public final class CockfightService {
         }
     }
 
-    private static Entity chicken(ServerLevel l, int i) { return l == null || CHICKENS[i] == null ? null : l.getEntity(CHICKENS[i]); }
+    private static Entity mob(ServerLevel l, Group g, int i) { return l == null || g.pit.mobs[i] == null ? null : l.getEntity(g.pit.mobs[i]); }
 
-    private static void removeChickens(MinecraftServer s) {
+    private static void removeMobs(MinecraftServer s, Group g) {
         for (int i = 0; i < 2; i++) {
-            if (CHICKENS[i] == null) continue;
+            if (g.pit.mobs[i] == null) continue;
             for (ServerLevel l : s.getAllLevels()) {
-                Entity c = l.getEntity(CHICKENS[i]);
+                Entity c = l.getEntity(g.pit.mobs[i]);
                 if (c != null) c.discard();
             }
-            CHICKENS[i] = null;
+            g.pit.mobs[i] = null;
         }
     }
 
-    /** Un coq de combat qui se recharge (redémarrage, chunk) hors d'un combat en cours est retiré. */
+    /** Un combattant qui se recharge (redémarrage, chunk) hors d'un combat en cours est retiré. */
     @SubscribeEvent
     public static void onJoin(EntityJoinLevelEvent e) {
         if (e.getLevel().isClientSide() || !e.getEntity().getTags().contains(TAG)) return;
         UUID id = e.getEntity().getUUID();
-        if (!id.equals(CHICKENS[0]) && !id.equals(CHICKENS[1])) e.setCanceled(true);
+        MinecraftServer s = e.getLevel().getServer();
+        if (s != null) for (Group g : Arenas.get(s).groups) if (id.equals(g.pit.mobs[0]) || id.equals(g.pit.mobs[1])) return;
+        e.setCanceled(true);
     }
 
-    // ------------------------------------------------------------------ déplacement de l'arène
+    // ------------------------------------------------------------------ déplacement des arènes
 
-    private static void rotation(MinecraftServer s) {
-        Arenas a = Arenas.get(s);
-        // emplacements dont le bloc a disparu (chunk chargé) : oubliés
-        boolean changed = a.spots.removeIf(sp -> {
-            ServerLevel l = s.getLevel(sp.dim());
-            if (l == null) return true;
-            if (!l.isLoaded(sp.pos())) return false;
-            BlockState st = l.getBlockState(sp.pos());
-            return !(st.getBlock() instanceof ArenaBlock) || st.getValue(ArenaBlock.PART_A) != 0;
-        });
-        if (changed) { a.active = Math.min(a.active, a.spots.size() - 1); a.setDirty(); }
-        if (a.spots.isEmpty()) return;
+    private static void rotation(MinecraftServer s, Arenas a) {
+        if (a.legacyCaisse > 0) {
+            MineNorth.treasury().collect(s, a.legacyCaisse, "casino:combats_de_coqs");
+            LOG.info("[Casino] Ancienne caisse de l'arène ({} cts) versée au trésor public", a.legacyCaisse);
+            a.legacyCaisse = 0;
+            a.setDirty();
+        }
         long now = System.currentTimeMillis();
         CasinoConfig.Coqs k = CasinoConfig.get().combats_de_coqs;
-        if (now < a.closedUntil) {
-            if (a.active != -1) { a.active = -1; a.setDirty(); }
-        } else if (a.activeSpot() == null) {
-            a.active = RNG.nextInt(a.spots.size());
-            a.nextMove = now + k.deplacement_minutes * 60_000L;
-            a.setDirty();
-        } else if (a.spots.size() >= 2 && now >= a.nextMove && (phase == Phase.IDLE || phase == Phase.PAUSE) && BETS.isEmpty() && ENTRANTS[0] == null && ENTRANTS[1] == null
-                && !playerNear(s, a.activeSpot(), k.rayon_presence_blocs)) {
-            int next;
-            do next = RNG.nextInt(a.spots.size()); while (next == a.active);
-            a.active = next;
-            a.nextMove = now + k.deplacement_minutes * 60_000L;
-            a.setDirty();
-            removeChickens(s);
-            ENTRANTS[0] = ENTRANTS[1] = null;
-            phase = Phase.IDLE;
-            fight = null;
-            VIEWERS.clear();
+        for (Group g : new ArrayList<>(a.groups)) {
+            // emplacements dont le bloc a disparu (chunk chargé) : oubliés
+            Spot was = g.activeSpot();
+            boolean changed = g.spots.removeIf(sp -> {
+                ServerLevel l = s.getLevel(sp.dim());
+                if (l == null) return true;
+                if (!l.isLoaded(sp.pos())) return false;
+                BlockState st = l.getBlockState(sp.pos());
+                return !(st.getBlock() instanceof ArenaBlock) || ArenaBlock.partOf(st) != 0;
+            });
+            if (changed) {
+                if (was != null && !g.spots.contains(was)) cancel(s, g, "L'arène a disparu : mises rendues.");
+                g.active = was != null && g.spots.contains(was) ? g.spots.indexOf(was) : g.spots.isEmpty() ? -1 : 0;
+                a.setDirty();
+            }
+            if (g.spots.isEmpty()) { a.groups.remove(g); a.setDirty(); continue; }
+            if (g.activeSpot() == null) { g.active = 0; a.setDirty(); }
+            Phase ph = g.pit.phase;
+            if (g.spots.size() >= 2 && now >= g.nextMove && (ph == Phase.IDLE || ph == Phase.MATCH || ph == Phase.PAUSE) && g.pit.bets.isEmpty()
+                    && !playerNear(s, g.activeSpot(), k.rayon_presence_blocs)) {
+                int next;
+                do next = RNG.nextInt(g.spots.size()); while (next == g.active);
+                g.active = next;
+                g.nextMove = now + k.deplacement_minutes * 60_000L;
+                removeMobs(s, g);
+                if (ph == Phase.PAUSE) { g.pit.pickA = g.pit.pickB = -1; buildMatch(g); }
+                closeViewers(g);
+                a.setDirty();
+            } else if (now >= g.nextMove && g.spots.size() < 2) {
+                g.nextMove = now + k.deplacement_minutes * 60_000L;
+            }
         }
         sync(s, a);
         if (!a.pending.isEmpty()) deliverPending(s, a);
     }
 
-    private static boolean playerNear(MinecraftServer s, Arenas.Spot spot, int r) {
+    private static boolean playerNear(MinecraftServer s, Spot spot, int r) {
         for (ServerPlayer p : s.getPlayerList().getPlayers())
             if (p.level().dimension() == spot.dim() && p.blockPosition().distSqr(spot.pos()) <= (double) r * r) return true;
         return false;
     }
 
-    /** Met l'état ouvert / fermé des arènes chargées en accord avec l'emplacement actif. */
+    /** Met l'état ouvert / fermé des arènes chargées en accord avec l'emplacement actif de chaque organisateur. */
     private static void sync(MinecraftServer s, Arenas a) {
-        ArenaBlock block = (ArenaBlock) ModBlocks.ARENA.get();
-        Arenas.Spot act = a.activeSpot();
-        for (Arenas.Spot sp : a.spots) {
-            ServerLevel l = s.getLevel(sp.dim());
-            if (l != null) block.setOpen(l, sp.pos(), sp.equals(act) && !a.closedByOrg);
+        for (Group g : a.groups) {
+            Spot act = g.activeSpot();
+            for (Spot sp : g.spots) {
+                ServerLevel l = s.getLevel(sp.dim());
+                if (l != null && l.isLoaded(sp.pos()) && l.getBlockState(sp.pos()).getBlock() instanceof ArenaBlock ab) ab.setOpen(l, sp.pos(), sp.equals(act) && g.open());
+            }
         }
     }
 
@@ -1008,7 +1202,7 @@ public final class CockfightService {
             long c = a.pending.remove(id);
             a.setDirty();
             payCash(s, id, c);
-            p.sendSystemMessage(Component.literal("§6Un inconnu vous glisse §e" + euros(c) + "§6 : vos gains des combats de coqs."));
+            p.sendSystemMessage(Component.literal("§6Un inconnu vous glisse §e" + euros(c) + "§6 : votre argent des combats clandestins."));
         }
     }
 
@@ -1019,90 +1213,104 @@ public final class CockfightService {
 
     @SubscribeEvent
     public static void onStopping(ServerStoppingEvent e) {
-        cancel(e.getServer(), "Serveur arrêté.");
+        for (Group g : Arenas.get(e.getServer()).groups) if (!g.pit.bets.isEmpty() || g.pit.mobs[0] != null || g.pit.mobs[1] != null)
+            cancel(e.getServer(), g, "Serveur arrêté.");
         VIEWERS.clear();
     }
 
-    /** /casino : état des combats de coqs. */
+    /** /casino : état des arènes clandestines. */
     static List<String> report(MinecraftServer s) {
         Arenas a = Arenas.get(s);
-        Arenas.Spot act = a.activeSpot();
         List<String> out = new ArrayList<>();
-        out.add("§6Combats de coqs : §f" + a.spots.size() + " emplacement(s), " + (act == null ? "aucune arène ouverte"
-                : "ouverte en " + act.pos().toShortString()) + (a.closedUntil > System.currentTimeMillis() ? " §c(fermée après une descente)" : ""));
-        out.add("§7" + a.fights + " combats, misé " + euros(a.staked) + ", saisi par la police " + euros(a.seized) + ", caisse " + euros(a.caisse));
+        out.add("§6Arènes clandestines : §f" + a.groups.size() + " organisateur(s) · " + a.fights + " combats, misé " + euros(a.staked)
+                + ", saisi par la police " + euros(a.seized));
+        for (Group g : a.groups) {
+            Spot act = g.activeSpot();
+            out.add("§7- " + (g.animals ? "animaux" : "coqs") + " de §f" + (g.ownerName.isEmpty() ? "(OP)" : g.ownerName) + "§7 : " + g.spots.size()
+                    + " emplacement(s), " + (act == null ? "nulle part" : "en " + act.pos().toShortString()) + (g.closed ? ", bâchée" : "")
+                    + (g.closedUntil > System.currentTimeMillis() ? " §c(fermée après une descente)§7" : "") + ", commissions " + euros(g.earned));
+        }
         return out;
     }
 
     // ------------------------------------------------------------------ envoi de l'état
 
-    private static List<ServerPlayer> viewers(MinecraftServer s) {
+    private static List<ServerPlayer> viewers(MinecraftServer s, Group g) {
         List<ServerPlayer> out = new ArrayList<>();
-        for (UUID id : VIEWERS.keySet()) {
-            ServerPlayer p = s.getPlayerList().getPlayer(id);
+        Arenas a = Arenas.get(s);
+        for (Map.Entry<UUID, View> e : VIEWERS.entrySet()) {
+            if (a.groupAt(e.getValue().dim(), e.getValue().master()) != g) continue;
+            ServerPlayer p = s.getPlayerList().getPlayer(e.getKey());
             if (p != null) out.add(p);
         }
         return out;
     }
 
-    private static void broadcast(MinecraftServer s) { for (ServerPlayer p : viewers(s)) send(p, -1); }
+    private static void broadcast(MinecraftServer s, Group g) { for (ServerPlayer p : viewers(s, g)) send(p, g, -1); }
+
+    private static FighterView view(Group g, int i) {
+        Arenas a = null;
+        MinecraftServer s = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        if (s != null) a = Arenas.get(s);
+        if (!g.animals) {
+            HouseCock h = g.coop.get(i);
+            Cock c = h.cock;
+            return new FighterView(c.name(), "Coq de combat", c.color(), c.force(), c.agility(), c.stamina(), h.wins, h.losses, "", false);
+        }
+        Entrant e = g.pit.queue.get(i);
+        Cock c = cockAt(g, i);
+        Fighter f = a == null ? null : a.fighters.get(e.pet());
+        long rest = f == null ? 0 : f.lastFight + CasinoConfig.get().combats_de_coqs.repos_animal_minutes * 60_000L - System.currentTimeMillis();
+        return new FighterView(PokerService.cut(c.name(), 60), PokerService.cut(e.species(), 60), c.color(), c.force(), c.agility(), c.stamina(),
+                f == null ? 0 : f.wins, f == null ? 0 : f.losses, PokerService.cut(e.ownerName(), 60), rest > 0);
+    }
 
     /** {@code seq} : numéro de l'échange qui vient d'avoir lieu (animation côté client), -1 sinon. */
-    private static void send(ServerPlayer p, int seq) {
-        sendExtra(p);
-        sendState(p, seq);
-    }
-
-    /** Inscrits, animal du joueur et son entraînement, réglages de l'organisateur. */
-    private static void sendExtra(ServerPlayer p) {
-        Arenas a = Arenas.get(p.server);
+    private static void send(ServerPlayer p, Group g, int seq) {
+        Pit pit = g.pit;
         CasinoConfig.Coqs k = CasinoConfig.get().combats_de_coqs;
-        TamableAnimal pet = nearestPet(p);
-        Fighter f = pet == null ? null : a.fighters.get(pet.getUUID());
-        int base = Math.max(1, k.animal_qualites_depart);
-        String petName = pet == null ? "" : PokerService.cut(pet.getDisplayName().getString(), 40);
-        String petSpecies = pet == null ? "" : PokerService.cut(species(pet), 40);
-        int[] stats = f == null ? new int[]{base, base, base} : new int[]{f.force, f.agility, f.stamina};
-        long now = System.currentTimeMillis();
-        int trainWait = f == null ? 0 : (int) Math.max(0, (f.lastTrain + k.entrainement_minutes * 60_000L - now) / 1000);
-        int restWait = f == null ? 0 : (int) Math.max(0, (f.lastFight + k.repos_animal_minutes * 60_000L - now) / 1000);
-        int mySide = -1;
-        for (int i = 0; i < 2; i++) if (ENTRANTS[i] != null && ENTRANTS[i].owner().equals(p.getUUID())) mySide = i;
-        String benef = switch (a.beneficiary) {
-            case 1 -> "Maître du vainqueur";
-            case 2 -> "Moitié caisse / moitié maître";
-            case 3 -> a.beneficiaryName.isEmpty() ? "Joueur désigné" : a.beneficiaryName;
-            default -> k.gang_organisateur.isBlank() ? "Trésor public" : "Caisse du gang";
-        };
-        ModNetwork.send(p, new ModNetwork.CockExtraPacket(
-                ENTRANTS[0] == null ? "" : ENTRANTS[0].ownerName() + " · " + ENTRANTS[0].species(),
-                ENTRANTS[1] == null ? "" : ENTRANTS[1].ownerName() + " · " + ENTRANTS[1].species(),
-                petName, petSpecies, stats[0], stats[1], stats[2], f == null ? 0 : f.wins, f == null ? 0 : f.losses,
-                CasinoConfig.cents(k.prix_entrainement_euros), k.animal_qualite_max, trainWait, restWait, mySide,
-                organizer(p), !a.closedByOrg, a.manual, a.beneficiary, benef, (float) commission(a), (float) k.commission_max_pourcent));
-    }
-
-    private static void sendState(ServerPlayer p, int seq) {
-        if (fight == null) {
-            ModNetwork.send(p, new CockStatePacket(Phase.IDLE.ordinal(), 0, "", "", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5f,
-                    -1, -1, 0, false, 0, 0, -1, PokerService.cut(message, 200), List.of(), cash(p), police(p), false, 0));
-            return;
+        List<FighterView> roster = new ArrayList<>();
+        for (int i = 0; i < rosterSize(g) && i < 12; i++) roster.add(view(g, i));
+        FighterView fa = FighterView.NONE, fb = FighterView.NONE;
+        if (pit.fight != null) {
+            fa = pit.pickA >= 0 && pit.pickA < roster.size() && pit.phase != Phase.FIGHT && pit.phase != Phase.PAUSE ? roster.get(pit.pickA) : fv(pit.fight.a, g, 0);
+            fb = pit.pickB >= 0 && pit.pickB < roster.size() && pit.phase != Phase.FIGHT && pit.phase != Phase.PAUSE ? roster.get(pit.pickB) : fv(pit.fight.b, g, 1);
         }
         long poolA = 0, poolB = 0, mineA = 0, mineB = 0;
-        for (Bet b : BETS) {
+        for (Bet b : pit.bets) {
             if (b.side() == 0) poolA += b.cents(); else poolB += b.cents();
             if (b.id().equals(p.getUUID())) { if (b.side() == 0) mineA += b.cents(); else mineB += b.cents(); }
         }
-        Exchange x = step > 0 && step <= script.size() ? script.get(step - 1) : null;
-        int hpA = x != null ? x.hpA() : fight.a.hp(), hpB = x != null ? x.hpB() : fight.b.hp();
+        Exchange x = pit.step > 0 && pit.step <= pit.script.size() ? pit.script.get(pit.step - 1) : null;
+        int hpA = x != null ? x.hpA() : fa.hp(), hpB = x != null ? x.hpB() : fb.hp();
         List<String> lines = new ArrayList<>();
-        for (Bet b : BETS) if (lines.size() < 8) lines.add((b.side() == 0 ? "R" : "B") + PokerService.cut(b.name(), 60) + "|" + b.cents());
-        long left = phase == Phase.BETS || phase == Phase.PAUSE ? Math.max(0, deadline - System.currentTimeMillis()) / 1000 : 0;
-        boolean org = organizer(p);
-        ModNetwork.send(p, new CockStatePacket(phase.ordinal(), (int) left, fight.a.name(), fight.b.name(), fight.a.color(), fight.b.color(),
-                fight.a.force(), fight.a.agility(), fight.a.stamina(), fight.b.force(), fight.b.agility(), fight.b.stamina(),
-                fight.a.hp(), fight.b.hp(), hpA, hpB, poolA, poolB, (float) fight.pA, x != null && seq >= 0 ? x.attacker() : -1,
-                x != null && seq >= 0 ? x.damage() : -1, seq, x != null && x.crit(), mineA, mineB, winner, PokerService.cut(message, 200), lines, cash(p),
-                police(p), org, org ? Arenas.get(p.server).caisse : 0));
+        for (Bet b : pit.bets) if (lines.size() < 8) lines.add((b.side() == 0 ? "R" : "B") + PokerService.cut(b.name(), 60) + "|" + b.cents());
+        long left = pit.phase == Phase.BETS || pit.phase == Phase.PAUSE ? Math.max(0, pit.deadline - System.currentTimeMillis()) / 1000 : 0;
+        ModNetwork.send(p, new ArenaStatePacket(g.animals, pit.phase.ordinal(), (int) left, PokerService.cut(pit.message, 200), cash(p), isOwner(p, g),
+                police(p), PokerService.cut(g.ownerName, 60), g.open(), (float) commission(g), (float) k.commission_max_pourcent,
+                k.durees_paris_secondes, isOwner(p, g) ? g.earned : 0, roster, pit.pickA, pit.pickB, fa, fb, hpA, hpB, poolA, poolB,
+                pit.fight == null ? 0.5f : (float) pit.fight.pA, x != null && seq >= 0 ? x.attacker() : -1, x != null && seq >= 0 ? x.damage() : -1, seq,
+                x != null && x.crit(), mineA, mineB, pit.winner, lines, g.animals ? petView(p, g) : PetView.NONE));
+    }
+
+    /** Fiche d'un combattant du combat en cours (le roster a pu changer : retrait d'un inscrit après le combat). */
+    private static FighterView fv(Cock c, Group g, int side) {
+        Entrant e = g.pit.fighting[side];
+        return new FighterView(PokerService.cut(c.name(), 60), e == null ? "Coq de combat" : PokerService.cut(e.species(), 60), c.color(), c.force(),
+                c.agility(), c.stamina(), 0, 0, e == null ? "" : PokerService.cut(e.ownerName(), 60), false);
+    }
+
+    private static PetView petView(ServerPlayer p, Group g) {
+        TamableAnimal pet = nearestPet(p);
+        if (pet == null) return PetView.NONE;
+        CasinoConfig.Coqs k = CasinoConfig.get().combats_de_coqs;
+        Fighter f = Arenas.get(p.server).fighters.get(pet.getUUID());
+        int base = Math.max(1, k.animal_qualites_depart);
+        long now = System.currentTimeMillis();
+        return new PetView(true, PokerService.cut(pet.getDisplayName().getString(), 60), PokerService.cut(species(pet), 60),
+                f == null ? base : f.force, f == null ? base : f.agility, f == null ? base : f.stamina, f == null ? 0 : f.wins, f == null ? 0 : f.losses,
+                CasinoConfig.cents(k.prix_entrainement_euros), k.animal_qualite_max,
+                f == null ? 0 : (int) Math.max(0, (f.lastTrain + k.entrainement_minutes * 60_000L - now) / 1000),
+                f == null ? 0 : (int) Math.max(0, (f.lastFight + k.repos_animal_minutes * 60_000L - now) / 1000), queued(g, pet.getUUID()) >= 0);
     }
 }

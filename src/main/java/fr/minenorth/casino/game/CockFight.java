@@ -38,10 +38,14 @@ public final class CockFight {
         pA = Math.max(0.05, Math.min(0.95, wins / (double) n));
     }
 
-    private static Cock random(Random rng, String avoid) {
+    private static Cock random(Random rng, String avoid) { return random(rng, avoid == null ? java.util.Set.of() : java.util.Set.of(avoid)); }
+
+    /** Coq tiré au hasard (poulailler d'une arène), d'un autre nom que ceux de {@code taken}. */
+    public static Cock random(Random rng, java.util.Set<String> taken) {
         String name;
+        int tries = 0;
         do name = FIRST[rng.nextInt(FIRST.length)] + (rng.nextInt(3) == 0 ? " " + SECOND[rng.nextInt(SECOND.length)] : "");
-        while (name.equals(avoid));
+        while (taken.contains(name) && ++tries < 50);
         // 15 points répartis entre les trois qualités (chacune de 2 à 9) : aucun coq n'est imbattable.
         int f = 2 + rng.nextInt(6), ag = 2 + rng.nextInt(6);
         int st = Math.max(2, Math.min(9, 15 - f - ag + rng.nextInt(3) - 1));

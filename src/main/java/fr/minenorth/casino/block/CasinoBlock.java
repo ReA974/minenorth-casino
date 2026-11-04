@@ -34,12 +34,15 @@ import org.jetbrains.annotations.Nullable;
  */
 public class CasinoBlock extends Block {
     public enum Game {
-        SLOT(1, 1, 2), ROULETTE(3, 2, 1), BLACKJACK(3, 2, 1), CASHIER(1, 1, 1), POKER(3, 2, 1), COCKFIGHT(5, 4, 1);
+        SLOT(1, 1, 2), ROULETTE(3, 2, 1), BLACKJACK(3, 2, 1), CASHIER(1, 1, 1), POKER(3, 2, 1), COCKFIGHT(5, 4, 1), ANIMALS(7, 6, 1);
 
         /** Largeur (vers la droite du joueur), profondeur (vers l'arrière) et hauteur, en blocs. */
         final int w, d, h;
         Game(int w, int d, int h) { this.w = w; this.d = d; this.h = h; }
         public int parts() { return w * d * h; }
+
+        /** Arène de combats (coqs ou animaux). */
+        public boolean arena() { return this == COCKFIGHT || this == ANIMALS; }
     }
 
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
@@ -59,7 +62,7 @@ public class CasinoBlock extends Block {
                 .noOcclusion().pushReaction(PushReaction.BLOCK)
                 // Les loupiotes de la machine à sous éclairent un peu la salle (le morceau du haut seulement).
                 .lightLevel(s -> game == Game.SLOT && s.getValue(PART) == 1 ? 8 : game == Game.CASHIER ? 6
-                        : game == Game.COCKFIGHT && s.getValue(ArenaBlock.PART_A) == 0 && s.getValue(ArenaBlock.OPEN) ? 11 : 0));
+                        : game.arena() && ArenaBlock.partOf(s) == 0 && s.getValue(ArenaBlock.OPEN) ? 11 : 0));
         this.game = game;
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(part(), 0));
     }
@@ -70,7 +73,7 @@ public class CasinoBlock extends Block {
     public IntegerProperty part() { return PART; }
 
     @Override public VoxelShape getShape(BlockState s, BlockGetter l, BlockPos p, CollisionContext c) {
-        return game == Game.COCKFIGHT ? PIT : isTable() ? TABLE : FULL;
+        return game.arena() ? PIT : isTable() ? TABLE : FULL;
     }
 
     // ------------------------------------------------------------------ géométrie des morceaux
@@ -150,7 +153,7 @@ public class CasinoBlock extends Block {
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (level.isClientSide) return InteractionResult.SUCCESS;
         if (player instanceof ServerPlayer sp) {
-            if (game == Game.COCKFIGHT) fr.minenorth.casino.CockfightService.open(sp, masterOf(pos, state));
+            if (game.arena()) fr.minenorth.casino.CockfightService.open(sp, masterOf(pos, state));
             else CasinoService.open(sp, game, pos);
         }
         return InteractionResult.CONSUME;

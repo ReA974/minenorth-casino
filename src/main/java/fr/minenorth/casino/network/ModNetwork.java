@@ -29,7 +29,7 @@ import java.util.function.Supplier;
 public final class ModNetwork {
     private ModNetwork() {}
 
-    private static final String PROTOCOL = "5";
+    private static final String PROTOCOL = "6";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(MineNorthCasino.MOD_ID, "network"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
     private static int id = 0;
@@ -51,10 +51,8 @@ public final class ModNetwork {
         CHANNEL.registerMessage(id++, CashierActionPacket.class, CashierActionPacket::encode, CashierActionPacket::decode, CashierActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(id++, PokerActionPacket.class, PokerActionPacket::encode, PokerActionPacket::decode, PokerActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(id++, PokerStatePacket.class, PokerStatePacket::encode, PokerStatePacket::decode, PokerStatePacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-        CHANNEL.registerMessage(id++, CockActionPacket.class, CockActionPacket::encode, CockActionPacket::decode, CockActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
-        CHANNEL.registerMessage(id++, CockStatePacket.class, CockStatePacket::encode, CockStatePacket::decode, CockStatePacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-        CHANNEL.registerMessage(id++, CockExtraPacket.class, CockExtraPacket::encode, CockExtraPacket::decode, CockExtraPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
-        CHANNEL.registerMessage(id++, CockSettingPacket.class, CockSettingPacket::encode, CockSettingPacket::decode, CockSettingPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(id++, ArenaStatePacket.class, ArenaStatePacket::encode, ArenaStatePacket::decode, ArenaStatePacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(id++, ArenaActionPacket.class, ArenaActionPacket::encode, ArenaActionPacket::decode, ArenaActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(id++, JackpotPacket.class, JackpotPacket::encode, JackpotPacket::decode, JackpotPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
 
@@ -216,86 +214,97 @@ public final class ModNetwork {
     }
 
     /**
-     * État de l'arène de combats de coqs. {@code phase} : 0 en attente du premier pari, 1 paris, 2 combat, 3 fin. {@code seq} : numéro
-     * de l'échange qui vient d'avoir lieu (le client l'anime), -1 pour une simple mise à jour. {@code bets} : « R|B » + nom + « | » + centimes.
+     * État d'une arène de combats, préparé pour UN joueur. {@code phase} : 0 choix des combattants, 1 combattants choisis (paris pas encore
+     * ouverts), 2 paris ouverts, 3 combat, 4 résultat. {@code roster} : coqs du poulailler (arène des coqs) ou animaux inscrits (grande
+     * arène) ; {@code pickA} / {@code pickB} : combattants choisis par l'organisateur (index dans roster, -1 = aucun). {@code seq} : numéro
+     * de l'échange qui vient d'avoir lieu (le client l'anime), -1 sinon. {@code bets} : « R|B » + nom + « | » + centimes.
      */
-    public record CockStatePacket(int phase, int seconds, String nameA, String nameB, int colorA, int colorB,
-                                  int forceA, int agiA, int staA, int forceB, int agiB, int staB, int hpMaxA, int hpMaxB, int hpA, int hpB,
-                                  long poolA, long poolB, float pA, int attacker, int damage, int seq, boolean crit, long mineA, long mineB,
-                                  int winner, String message, List<String> bets, long cash, boolean police, boolean organizer, long caisse) {
-        static void encode(CockStatePacket p, FriendlyByteBuf b) {
-            b.writeVarInt(p.phase); b.writeVarInt(p.seconds); b.writeUtf(p.nameA, 64); b.writeUtf(p.nameB, 64); b.writeInt(p.colorA); b.writeInt(p.colorB);
-            b.writeVarInt(p.forceA); b.writeVarInt(p.agiA); b.writeVarInt(p.staA); b.writeVarInt(p.forceB); b.writeVarInt(p.agiB); b.writeVarInt(p.staB);
-            b.writeVarInt(p.hpMaxA); b.writeVarInt(p.hpMaxB); b.writeVarInt(p.hpA); b.writeVarInt(p.hpB);
-            b.writeVarLong(p.poolA); b.writeVarLong(p.poolB); b.writeFloat(p.pA);
-            b.writeVarInt(p.attacker + 1); b.writeVarInt(p.damage + 1); b.writeVarInt(p.seq + 1); b.writeBoolean(p.crit);
-            b.writeVarLong(p.mineA); b.writeVarLong(p.mineB); b.writeVarInt(p.winner + 1); b.writeUtf(p.message, 200);
-            b.writeVarInt(p.bets.size()); for (String s : p.bets) b.writeUtf(s, 96);
-            b.writeVarLong(p.cash); b.writeBoolean(p.police); b.writeBoolean(p.organizer); b.writeVarLong(p.caisse);
+    public record ArenaStatePacket(boolean animals, int phase, int seconds, String message, long cash, boolean owner, boolean police,
+                                   String ownerName, boolean open, float commission, float commissionMax, List<Integer> durations, long earned,
+                                   List<FighterView> roster, int pickA, int pickB, FighterView a, FighterView b, int hpA, int hpB,
+                                   long poolA, long poolB, float pA, int attacker, int damage, int seq, boolean crit, long mineA, long mineB,
+                                   int winner, List<String> bets, PetView pet) {
+        /** Un combattant : nom, description (« Coq · 4 V / 1 D » ou espèce), plumage, qualités, palmarès, maître (animaux), au repos. */
+        public record FighterView(String name, String desc, int color, int force, int agility, int stamina, int wins, int losses,
+                                  String owner, boolean resting) {
+            public static final FighterView NONE = new FighterView("", "", 0, 0, 0, 0, 0, 0, "", false);
+
+            public int hp() { return 20 + stamina * 3; }
+
+            void write(FriendlyByteBuf b) {
+                b.writeUtf(name, 64); b.writeUtf(desc, 64); b.writeInt(color); b.writeVarInt(force); b.writeVarInt(agility); b.writeVarInt(stamina);
+                b.writeVarInt(wins); b.writeVarInt(losses); b.writeUtf(owner, 64); b.writeBoolean(resting);
+            }
+
+            static FighterView read(FriendlyByteBuf b) {
+                return new FighterView(b.readUtf(64), b.readUtf(64), b.readInt(), b.readVarInt(), b.readVarInt(), b.readVarInt(), b.readVarInt(),
+                        b.readVarInt(), b.readUtf(64), b.readBoolean());
+            }
         }
 
-        static CockStatePacket decode(FriendlyByteBuf b) {
+        /** Animal du joueur le plus proche (grande arène) : fiche, entraînement, inscription. present = faux s'il n'en a pas près de lui. */
+        public record PetView(boolean present, String name, String species, int force, int agility, int stamina, int wins, int losses,
+                              long trainUnit, int statMax, int trainWait, int restWait, boolean registered) {
+            public static final PetView NONE = new PetView(false, "", "", 0, 0, 0, 0, 0, 0, 9, 0, 0, false);
+
+            void write(FriendlyByteBuf b) {
+                b.writeBoolean(present); b.writeUtf(name, 64); b.writeUtf(species, 64); b.writeVarInt(force); b.writeVarInt(agility);
+                b.writeVarInt(stamina); b.writeVarInt(wins); b.writeVarInt(losses); b.writeVarLong(trainUnit); b.writeVarInt(statMax);
+                b.writeVarInt(trainWait); b.writeVarInt(restWait); b.writeBoolean(registered);
+            }
+
+            static PetView read(FriendlyByteBuf b) {
+                return new PetView(b.readBoolean(), b.readUtf(64), b.readUtf(64), b.readVarInt(), b.readVarInt(), b.readVarInt(), b.readVarInt(),
+                        b.readVarInt(), b.readVarLong(), b.readVarInt(), b.readVarInt(), b.readVarInt(), b.readBoolean());
+            }
+        }
+
+        static void encode(ArenaStatePacket p, FriendlyByteBuf b) {
+            b.writeBoolean(p.animals); b.writeVarInt(p.phase); b.writeVarInt(p.seconds); b.writeUtf(p.message, 200); b.writeVarLong(p.cash);
+            b.writeBoolean(p.owner); b.writeBoolean(p.police); b.writeUtf(p.ownerName, 64); b.writeBoolean(p.open);
+            b.writeFloat(p.commission); b.writeFloat(p.commissionMax);
+            b.writeVarInt(p.durations.size()); for (int d : p.durations) b.writeVarInt(d);
+            b.writeVarLong(p.earned);
+            b.writeVarInt(p.roster.size()); for (FighterView f : p.roster) f.write(b);
+            b.writeVarInt(p.pickA + 1); b.writeVarInt(p.pickB + 1);
+            p.a.write(b); p.b.write(b);
+            b.writeVarInt(p.hpA); b.writeVarInt(p.hpB); b.writeVarLong(p.poolA); b.writeVarLong(p.poolB); b.writeFloat(p.pA);
+            b.writeVarInt(p.attacker + 1); b.writeVarInt(p.damage + 1); b.writeVarInt(p.seq + 1); b.writeBoolean(p.crit);
+            b.writeVarLong(p.mineA); b.writeVarLong(p.mineB); b.writeVarInt(p.winner + 1);
+            b.writeVarInt(p.bets.size()); for (String s : p.bets) b.writeUtf(s, 96);
+            p.pet.write(b);
+        }
+
+        static ArenaStatePacket decode(FriendlyByteBuf b) {
+            boolean animals = b.readBoolean();
             int phase = b.readVarInt(), sec = b.readVarInt();
-            String na = b.readUtf(64), nb = b.readUtf(64);
-            int ca = b.readInt(), cb = b.readInt();
-            int fa = b.readVarInt(), aa = b.readVarInt(), sa = b.readVarInt(), fb = b.readVarInt(), ab = b.readVarInt(), sb = b.readVarInt();
-            int ma = b.readVarInt(), mb = b.readVarInt(), ha = b.readVarInt(), hb = b.readVarInt();
-            long pa = b.readVarLong(), pb = b.readVarLong();
+            String msg = b.readUtf(200);
+            long cash = b.readVarLong();
+            boolean owner = b.readBoolean(), police = b.readBoolean();
+            String ownerName = b.readUtf(64);
+            boolean open = b.readBoolean();
+            float com = b.readFloat(), comMax = b.readFloat();
+            List<Integer> durations = readList(b, FriendlyByteBuf::readVarInt, 8);
+            long earned = b.readVarLong();
+            List<FighterView> roster = readList(b, FighterView::read, 12);
+            int pa = b.readVarInt() - 1, pb = b.readVarInt() - 1;
+            FighterView fa = FighterView.read(b), fb = FighterView.read(b);
+            int hpA = b.readVarInt(), hpB = b.readVarInt();
+            long poolA = b.readVarLong(), poolB = b.readVarLong();
             float pA = b.readFloat();
             int att = b.readVarInt() - 1, dmg = b.readVarInt() - 1, seq = b.readVarInt() - 1;
             boolean crit = b.readBoolean();
-            long mya = b.readVarLong(), myb = b.readVarLong();
+            long mineA = b.readVarLong(), mineB = b.readVarLong();
             int win = b.readVarInt() - 1;
-            String msg = b.readUtf(200);
             List<String> bets = readList(b, x -> x.readUtf(96), MAX_LIST);
-            return new CockStatePacket(phase, sec, na, nb, ca, cb, fa, aa, sa, fb, ab, sb, ma, mb, ha, hb, pa, pb, pA, att, dmg, seq, crit, mya, myb,
-                    win, msg, bets, b.readVarLong(), b.readBoolean(), b.readBoolean(), b.readVarLong());
+            return new ArenaStatePacket(animals, phase, sec, msg, cash, owner, police, ownerName, open, com, comMax, durations, earned, roster, pa, pb,
+                    fa, fb, hpA, hpB, poolA, poolB, pA, att, dmg, seq, crit, mineA, mineB, win, bets, PetView.read(b));
         }
 
-        static void handle(CockStatePacket p, Supplier<NetworkEvent.Context> c) { toClient(c, () -> ClientHandler.cock(p)); }
-    }
-
-    /**
-     * Complément de l'état de l'arène : maîtres des animaux inscrits (« maître · espèce », vide = coq de la maison), animal du joueur le plus
-     * proche et son entraînement, réglages de l'organisateur (organizer = droit de les changer).
-     */
-    public record CockExtraPacket(String ownerA, String ownerB, String petName, String petSpecies, int petForce, int petAgi, int petSta,
-                                  int petWins, int petLosses, long trainUnitCents, int statMax, int trainWait, int restWait, int mySide,
-                                  boolean organizer, boolean open, boolean manual, int beneficiary, String beneficiaryLabel, float commission,
-                                  float commissionMax) {
-        static void encode(CockExtraPacket p, FriendlyByteBuf b) {
-            b.writeUtf(p.ownerA, 128); b.writeUtf(p.ownerB, 128); b.writeUtf(p.petName, 64); b.writeUtf(p.petSpecies, 64);
-            b.writeVarInt(p.petForce); b.writeVarInt(p.petAgi); b.writeVarInt(p.petSta); b.writeVarInt(p.petWins); b.writeVarLong(p.trainUnitCents);
-            b.writeVarInt(p.statMax); b.writeVarInt(p.trainWait); b.writeVarInt(p.restWait); b.writeVarInt(p.mySide + 1); b.writeVarInt(p.petLosses);
-            b.writeBoolean(p.organizer); b.writeBoolean(p.open); b.writeBoolean(p.manual); b.writeVarInt(p.beneficiary); b.writeUtf(p.beneficiaryLabel, 96);
-            b.writeFloat(p.commission); b.writeFloat(p.commissionMax);
-        }
-
-        static CockExtraPacket decode(FriendlyByteBuf b) {
-            String oa = b.readUtf(128), ob = b.readUtf(128), pn = b.readUtf(64), ps = b.readUtf(64);
-            int f = b.readVarInt(), a = b.readVarInt(), s = b.readVarInt(), w = b.readVarInt();
-            long unit = b.readVarLong();
-            int max = b.readVarInt(), tw = b.readVarInt(), rw = b.readVarInt(), side = b.readVarInt() - 1, l = b.readVarInt();
-            boolean org = b.readBoolean(), open = b.readBoolean(), manual = b.readBoolean();
-            int ben = b.readVarInt();
-            String bl = b.readUtf(96);
-            return new CockExtraPacket(oa, ob, pn, ps, f, a, s, w, l, unit, max, tw, rw, side, org, open, manual, ben, bl, b.readFloat(), b.readFloat());
-        }
-
-        static void handle(CockExtraPacket p, Supplier<NetworkEvent.Context> c) { toClient(c, () -> ClientHandler.cockExtra(p)); }
+        static void handle(ArenaStatePacket p, Supplier<NetworkEvent.Context> c) { toClient(c, () -> ClientHandler.arena(p)); }
     }
 
     // ------------------------------------------------------------------ client → serveur
-
-    /** Menu de l'organisateur de l'arène : réglage {@code kind} (CockfightService.SET_*), valeur ou texte (pseudo du bénéficiaire). */
-    public record CockSettingPacket(int kind, int value, String text) {
-        static void encode(CockSettingPacket p, FriendlyByteBuf b) { b.writeVarInt(p.kind); b.writeVarInt(p.value); b.writeUtf(p.text, 32); }
-        static CockSettingPacket decode(FriendlyByteBuf b) { return new CockSettingPacket(b.readVarInt(), b.readVarInt(), b.readUtf(32)); }
-        static void handle(CockSettingPacket p, Supplier<NetworkEvent.Context> c) {
-            toServer(c, sp -> fr.minenorth.casino.CockfightService.setting(sp, p.kind, p.value, p.text));
-        }
-    }
-
 
     /** Poker : 0 couché, 1 check, 2 suivre, 3 relancer à {@code amount}, 4 tapis, 10 s'asseoir au siège {@code seat} avec {@code amount}, 11 se lever. */
     public record PokerActionPacket(int action, int seat, long amount) {
@@ -307,14 +316,17 @@ public final class ModNetwork {
     }
 
     /**
-     * Combats : 0 parier {@code cents} sur le côté {@code side} (0 rouge, 1 bleu), 1 récupérer la caisse, 2 descente de police,
-     * 3 inscrire son animal, 4 le retirer, 5 l'entraîner ({@code side} = qualité : 0 force, 1 agilité, 2 endurance).
+     * Arène de combats (CockfightService) : 0 parier {@code b} centimes sur le côté {@code a} (0 rouge, 1 bleu), 1 descente de police,
+     * 2 inscrire son animal, 3 le retirer, 4 l'entraîner ({@code a} : 0 force, 1 agilité, 2 endurance).
+     * Organisateur : 10 choisir le combattant {@code b} (index du poulailler / des inscrits) du côté {@code a}, 11 ouvrir les paris pour
+     * {@code a} secondes, 12 lancer le combat maintenant, 13 annuler le combat choisi, 14 ouvrir / bâcher l'arène, 15 commission
+     * ({@code a} en dixièmes de %), 16 renouveler le poulailler.
      */
-    public record CockActionPacket(int action, int side, long cents) {
-        static void encode(CockActionPacket p, FriendlyByteBuf b) { b.writeVarInt(p.action); b.writeVarInt(p.side); b.writeVarLong(p.cents); }
-        static CockActionPacket decode(FriendlyByteBuf b) { return new CockActionPacket(b.readVarInt(), b.readVarInt(), b.readVarLong()); }
-        static void handle(CockActionPacket p, Supplier<NetworkEvent.Context> c) {
-            toServer(c, sp -> fr.minenorth.casino.CockfightService.action(sp, p.action, p.side, p.cents));
+    public record ArenaActionPacket(int action, int a, long b) {
+        static void encode(ArenaActionPacket p, FriendlyByteBuf buf) { buf.writeVarInt(p.action); buf.writeVarInt(p.a); buf.writeVarLong(p.b); }
+        static ArenaActionPacket decode(FriendlyByteBuf buf) { return new ArenaActionPacket(buf.readVarInt(), buf.readVarInt(), buf.readVarLong()); }
+        static void handle(ArenaActionPacket p, Supplier<NetworkEvent.Context> c) {
+            toServer(c, sp -> fr.minenorth.casino.CockfightService.action(sp, p.action, p.a, p.b));
         }
     }
 

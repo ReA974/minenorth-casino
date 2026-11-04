@@ -1,8 +1,8 @@
 # MineNorth Casino
 
 Mod Forge 1.20.1 pour MineNorth RP. Dépend de `minenorthapi`, `minenorth_eurobank` et `minenorthentreprises`.
-Utilise aussi, s'ils sont présents (par réflexion, sans dépendance de compilation) : les espèces d'EuroBank, les gangs du mod Portes
-(`GangApi`) et les alertes du mod Police (`RadarHack.raise`).
+Utilise aussi, s'ils sont présents (par réflexion, sans dépendance de compilation) : les espèces d'EuroBank et les alertes du mod
+Police (`RadarHack.raise`).
 Build : `./gradlew build` (JDK 17) → `build/libs/minenorth-casino-1.0.0.jar`.
 
 ## Principe
@@ -20,7 +20,8 @@ Les mouvements apparaissent dans l'historique du compte de l'entreprise (« Casi
 - `table_roulette` : grande table de 3 x 2 blocs (roue à gauche, tapis à droite), se pose et se casse d'un bloc. Roulette européenne (0-36), paris multiples : plein, douzaines, colonnes, rouge/noir,
   pair/impair, manque/passe. Clic gauche = poser le jeton, clic droit = retirer.
 - `table_poker` : table de **Texas Hold'em** de 3 x 2 blocs (voir plus bas).
-- `arene_coqs` : arène clandestine de **combats** (coqs de la maison ou animaux des joueurs) de **5 x 4 blocs** (voir plus bas).
+- `arene_coqs` : arène clandestine de **combats de coqs** de **5 x 4 blocs**, et `arene_animaux` : **grande arène** de **7 x 6 blocs**
+  pour les animaux des joueurs (voir plus bas). Posables par n'importe quel joueur, qui en devient l'organisateur.
 - `table_blackjack` : grande table de 3 x 2 blocs (demi-lune, plateau de jetons et sabot), se pose et se casse d'un bloc. 6 jeux, tirer / rester / doubler, blackjack payé 3 contre 2. Pas de split ni d'assurance.
   Un joueur qui se déconnecte en pleine main : le croupier joue et la main est réglée normalement.
 
@@ -44,46 +45,45 @@ Par défaut seuls les OP posent et cassent ces blocs (`pose_op_seulement`).
 - **Anti-triche** : le serveur mélange (`SecureRandom`), distribue, vérifie chaque action (tour, montant, tapis) et n'envoie à chaque
   joueur que SES cartes ; celles des autres ne partent qu'au showdown. Un joueur ne peut s'asseoir qu'à une seule table.
 
-## Combats de coqs clandestins
+## Arènes de combats clandestins (coqs et animaux)
 - **Hors casino** : pas d'entreprise, paris en **espèces** (billets EuroBank sur soi ou dans le portefeuille), monnaie rendue.
-- Deux coqs tirés au hasard (nom, plumage, force, agilité, endurance). Le premier pari lance le compte à rebours
-  (`duree_paris_secondes`), puis le combat : deux vrais poulets apparaissent dans l'arène, bondissent l'un sur l'autre (plumes,
-  coups critiques, esquives) et l'écran rejoue chaque échange avec les points de vie. Le perdant s'effondre.
-- **Cotes au pari mutuel** : les mises perdantes paient les gagnants au prorata de leur mise ; l'organisateur garde
-  `commission_pourcent` des mises perdantes. Cote affichée = gain pour 1 € (théorique tant qu'aucun pari, calculée sur ~600 combats
-  simulés). Personne sur le vainqueur : tout le monde est remboursé. On ne parie que sur un coq par combat. **Aucun argent créé.**
-- **Gangs** : `gang_organisateur` = le gang (mod Portes) qui tient l'arène. Ses membres voient la caisse (les commissions) et la
-  récupèrent en espèces. Sans gang configuré, les commissions partent au trésor public. Le tag de gang apparaît devant les parieurs.
-- **L'arène bouge** comme les boutiques illégales : poser plusieurs `arene_coqs` (OP), une seule est ouverte à la fois ; toutes les
-  `deplacement_minutes`, elle change d'emplacement (pas pendant un combat, pas si un joueur est à moins de `rayon_presence_blocs`).
-  Une arène fermée ressemble à un tas de caisses bâché, sans rien à y faire.
-- **Police** : au début de chaque combat, `chance_alerte_police` qu'un témoin prévienne la police (alerte avec position approximative,
-  repère de carte, onglet ALERTES de la tablette). Un policier **en service** (`police_en_service`) qui ouvre l'arène a le bouton
-  **DÉMANTELER** : mises en cours et caisse saisies (trésor public, « police:saisie_combats_de_coqs »), liste des parieurs, arène
-  fermée partout pendant `fermeture_apres_descente_minutes`. Un policier ne peut pas parier.
+- **L'organisateur, c'est celui qui pose l'arène** (`pose_par_les_joueurs`, vrai par défaut ; faux = OP seulement). Lui seul (et les OP)
+  peut la démonter. Il choisit les combattants, ouvre les paris, lance le combat, règle sa commission et **la touche en espèces**
+  (à sa prochaine connexion s'il est absent). Plus aucun lien avec les gangs.
+- **Deux arènes** :
+  - `arene_coqs` (5 x 4) : chaque arène a son **poulailler** de `coqs_au_poulailler` coqs (nom, plumage, force, agilité, endurance,
+    victoires / défaites gardées). L'organisateur peut **renouveler** le poulailler entre deux combats ;
+  - `arene_animaux` (7 x 6, fosse en tôle rouillée, projecteurs, pneus) : les joueurs **inscrivent** leur animal apprivoisé (chien,
+    chat, animal de compagnie… à moins de `distance_animal_blocs`, pas un chien de police), jusqu'à `animaux_inscrits_max` inscrits.
+    Se bat un **double** de l'animal (même apparence, sans IA, invulnérable, retiré à la fin) : le vrai ne risque rien. Après un
+    combat, l'animal quitte la liste et se repose `repos_animal_minutes`.
+- **Écran de l'arène** (arrondi, ambiance Vice City), onglets :
+  - **Combat** : l'arène animée, les deux coins (fiche, qualités, cote, mises), le déroulé. **On clique sur un coin pour choisir son
+    camp**, on choisit sa mise (jetons rapides ou montant libre) puis « Miser X € sur … ». L'organisateur y **ouvre les paris** en
+    choisissant leur durée (`durees_paris_secondes` : 30, 60, 120 s), **lance le combat** tout de suite ou l'**annule** (mises rendues) ;
+  - **Combattants** : les fiches du poulailler ou des inscrits ; l'organisateur place qui il veut dans le **coin rouge** et le **coin
+    bleu** (cotes calculées aussitôt), vide les coins ou renouvelle le poulailler ;
+  - **Mon animal** (grande arène) : inscrire / retirer son animal, l'**entraîner** (+1 en force, agilité ou endurance, plafond
+    `animal_qualite_max`, payé en espèces `prix_entrainement_euros` x niveau, une séance toutes les `entrainement_minutes`) ;
+  - **Organisation** (organisateur) : arène **ouverte / bâchée**, **commission** de 0 à `commission_max_pourcent`, commissions touchées.
+- Déroulé : choix des combattants → paris ouverts (compte à rebours) → combat (vrais combattants dans l'arène, bonds, plumes, coups
+  critiques, esquives ; l'écran rejoue chaque échange) → résultat → retour au choix.
+- **Cotes au pari mutuel** : les mises perdantes paient les gagnants au prorata ; l'organisateur garde sa commission sur les mises
+  perdantes. Cote affichée = gain pour 1 € (théorique tant qu'aucun pari, estimée sur ~600 combats simulés). Personne sur le vainqueur :
+  tout le monde est remboursé. Un seul camp par joueur et par combat. **Aucun argent créé.**
+- **Plusieurs arènes du même organisateur** (même type) : une seule ouverte à la fois ; elle change de place toutes les
+  `deplacement_minutes` (pas pendant un combat, pas si un joueur est à moins de `rayon_presence_blocs`), comme les boutiques illégales.
+  L'organisateur peut aussi l'installer ailleurs en ouvrant une autre de ses arènes entre deux combats. Les arènes de deux
+  organisateurs différents sont indépendantes. Une arène bâchée ou inactive ressemble à un tas de caisses.
+- **Police** : au début de chaque combat, `chance_alerte_police` qu'un témoin prévienne la police (position approximative, repère de
+  carte, onglet ALERTES). Un policier **en service** qui ouvre l'arène a le bouton **DÉMANTELER** : mises saisies (trésor public,
+  « police:saisie_combats_de_coqs »), noms de l'organisateur et des parieurs, arènes de cet organisateur fermées
+  `fermeture_apres_descente_minutes`. Un policier ne parie pas et n'inscrit pas d'animal.
 - Gains d'un joueur parti avant la fin : remis en espèces à sa prochaine connexion. Arrêt du serveur ou arène démontée pendant les
   paris : mises rendues.
-
-## Arène : animaux des joueurs, entraînement, menu de l'organisateur (04/11)
-- **Arène agrandie : 5 x 4 blocs** (ring de sable, palissade, gradins en bottes de paille, caisse du bookmaker, guirlande d'ampoules ;
-  version fermée = gros tas de caisses bâché). Les combattants se font face à 3 blocs l'un de l'autre. Propriété de bloc à part
-  (`ArenaBlock.PART_A`, 0 à 19) : les autres tables gardent 0 à 5. **Les arènes déjà posées (3 x 2) sont à casser et reposer.**
-- **Combattre avec son animal** : onglet « Mon animal » de l'écran de l'arène. Le maître se tient près de l'arène avec son animal
-  apprivoisé (chien, chat, animal Polly Pets… à moins de `distance_animal_blocs`, pas un chien de police) et l'**inscrit** à la place d'un
-  coq de la maison (une place par côté, un animal par maître, avant le premier pari). Dans l'arène se bat un **double** de l'animal
-  (même apparence, sans IA, invulnérable, retiré à la fin) : le vrai animal ne risque rien. Une inscription vaut pour un combat ; après, l'animal
-  se repose `repos_animal_minutes`. Retrait possible tant qu'aucun pari n'est engagé.
-- **Entraînement** (même onglet) : +1 en force, agilité ou endurance (plafond `animal_qualite_max`, départ `animal_qualites_depart`), payé en
-  **espèces** (`prix_entrainement_euros` x niveau actuel), une séance toutes les `entrainement_minutes` par animal. Pas pendant une inscription.
-  Fiche par animal (qualités, victoires, défaites) dans la sauvegarde de l'arène (`minenorth_casino_coqs`).
-- **Menu de l'organisateur** (onglet « Organisation » : membres du `gang_organisateur` et staff OP) :
-  - **Arène ouverte / fermée** : fermée, l'emplacement actif reste bâché (personne d'autre ne peut l'ouvrir) ; pas pendant des paris ou un combat ;
-  - **Lancement automatique / à la main** : à la main, les paris restent ouverts jusqu'au bouton **« Lancer le combat maintenant »**
-    (le bouton marche aussi en automatique pour couper le compte à rebours) ;
-  - **Commission** de 0 à `commission_max_pourcent` (pas de 1 %, entre deux combats) ;
-  - **Bénéficiaire de la commission** : caisse du gang (trésor public sans gang), **maître de l'animal vainqueur**, moitié / moitié, ou
-    **un joueur désigné** (pseudo exact, connecté). Si le vainqueur est un coq de la maison, la part « maître » va à la caisse.
-- Réseau : **protocole 5** (mod à installer serveur ET clients).
+- Mise à jour depuis la version du 04/11 matin : l'ancienne arène devient une arène « sans organisateur », gérée par les OP ; l'ancienne
+  caisse du gang est versée au trésor public. **Les arènes 3 x 2 du tout premier modèle sont à casser et reposer.**
+- Réseau : **protocole 6** (mod à installer serveur ET clients).
 
 ## Jackpot progressif et gros gains
 - Une part de chaque mise des machines à sous (`part_des_mises_pourcent`) alimente un **jackpot commun** à toutes les machines,
@@ -107,7 +107,7 @@ Par défaut seuls les OP posent et cassent ces blocs (`pose_op_seulement`).
 - **Salon VIP** : tables de poker à grosses blinds réservées aux grades VIP, commission réduite pour les VIP.
 - **Tournois de poker** (sit & go) avec droit d'entrée et répartition des prix ; classement des meilleurs joueurs.
 - **Croupier PNJ** animé derrière les tables, et jetons posés en vrai sur le tapis (rendu de bloc).
-- **Combines de gang** : un gang peut « acheter » le combat (coq dopé, cotes faussées) au risque d'une enquête de police.
+- **Combines** : l'organisateur peut « doper » un combattant (cotes faussées) au risque d'une enquête de police.
 - **Carte de fidélité casino** : points cumulés, cadeaux, accès VIP temporaire.
 
 ## Commandes (OP / console)
@@ -128,11 +128,11 @@ Par défaut seuls les OP posent et cassent ces blocs (`pose_op_seulement`).
 - `poker` : `petite_blind_euros`, `grosse_blind_euros`, `cave_min_blinds` / `cave_max_blinds`, `commission_pourcent` (5),
   `commission_max_euros` (20), `temps_par_action_secondes` (30), `pause_entre_mains_secondes`.
 - `jackpot` : `actif`, `part_des_mises_pourcent` (1), `montant_depart_euros` (500), `annonce_gros_gain_euros`, `rayon_annonce_blocs`.
-- `combats_de_coqs` : mises min / max (espèces, par combat), `mises_rapides_euros`, `duree_paris_secondes`, `pause_secondes`,
-  `commission_pourcent` (10), `gang_organisateur`, `deplacement_minutes`, `rayon_presence_blocs`, `chance_alerte_police`,
-  `police_en_service`, `fermeture_apres_descente_minutes` ; animaux : `animal_qualites_depart` (3), `animal_qualite_max` (9),
-  `prix_entrainement_euros` (25), `entrainement_minutes` (30), `repos_animal_minutes` (10), `distance_animal_blocs` (10),
-  `commission_max_pourcent` (30).
+- `combats_de_coqs` : mises min / max (espèces, par combat), `mises_rapides_euros`, `durees_paris_secondes`, `pause_secondes`,
+  `commission_pourcent` (10, commission d'une nouvelle arène), `commission_max_pourcent` (30), `pose_par_les_joueurs`,
+  `coqs_au_poulailler` (6), `animaux_inscrits_max` (8), `deplacement_minutes`, `rayon_presence_blocs`, `chance_alerte_police`,
+  `police_en_service`, `fermeture_apres_descente_minutes`, et pour les animaux `animal_qualites_depart`, `animal_qualite_max`,
+  `prix_entrainement_euros`, `entrainement_minutes`, `repos_animal_minutes`, `distance_animal_blocs`.
 Toutes ces sections s'ajoutent seules au fichier au démarrage.
 
 

@@ -4,6 +4,7 @@ import fr.minenorth.casino.CockfightService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -15,17 +16,20 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Arène clandestine de combats (5 x 4 blocs : coqs de la maison ou animaux des joueurs). Plusieurs arènes peuvent être posées : une seule est ouverte à la fois
- * ({@link #OPEN}), les autres ressemblent à un tas de caisses bâché. L'emplacement ouvert change régulièrement, comme les boutiques
- * illégales ; c'est {@link CockfightService} qui tient la liste et choisit.
+ * Arène clandestine de combats, posée par un joueur qui en devient l'organisateur. Deux tailles : {@code arene_coqs} (5 x 4, coqs du
+ * poulailler de l'organisateur) et {@link BigArenaBlock} {@code arene_animaux} (7 x 6, animaux des joueurs). Un organisateur qui pose
+ * plusieurs arènes du même type n'en a qu'une ouverte à la fois ({@link #OPEN}) ; les autres ressemblent à un tas de caisses bâché.
+ * C'est {@link CockfightService} qui tient les arènes, leurs organisateurs et les combats.
  */
 public class ArenaBlock extends CasinoBlock {
     public static final BooleanProperty OPEN = BooleanProperty.create("open");
-    /** Morceaux de l'arène (5 x 4 = 20) : propriété à part, les autres tables du casino gardent 0 à 5. */
+    /** Morceaux de l'arène des coqs (5 x 4 = 20) : propriété à part, les autres tables du casino gardent 0 à 5. */
     public static final IntegerProperty PART_A = IntegerProperty.create("part", 0, 19);
 
-    public ArenaBlock() {
-        super(Game.COCKFIGHT);
+    public ArenaBlock() { this(Game.COCKFIGHT); }
+
+    protected ArenaBlock(Game game) {
+        super(game);
         registerDefaultState(defaultBlockState().setValue(OPEN, false));
     }
 
@@ -37,10 +41,18 @@ public class ArenaBlock extends CasinoBlock {
     @Override
     public IntegerProperty part() { return PART_A; }
 
+    /** Numéro du morceau d'un état d'arène, quelle que soit sa taille. */
+    public static int partOf(BlockState s) {
+        return s.hasProperty(PART_A) ? s.getValue(PART_A) : s.hasProperty(BigArenaBlock.PART_B) ? s.getValue(BigArenaBlock.PART_B) : -1;
+    }
+
+    /** Arène des animaux des joueurs (la grande) ou des coqs. */
+    public boolean animals() { return game == Game.ANIMALS; }
+
     @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity by, ItemStack stack) {
         super.setPlacedBy(level, pos, state, by, stack);
-        if (level instanceof ServerLevel sl) CockfightService.register(sl, pos);
+        if (level instanceof ServerLevel sl) CockfightService.register(sl, pos, this, by instanceof ServerPlayer sp ? sp : null);
     }
 
     @Override
@@ -53,7 +65,7 @@ public class ArenaBlock extends CasinoBlock {
     public void setOpen(Level level, BlockPos master, boolean open) {
         if (!level.isLoaded(master)) return;
         BlockState ms = level.getBlockState(master);
-        if (!ms.is(this) || ms.getValue(PART_A) != 0) return;
+        if (!ms.is(this) || ms.getValue(part()) != 0) return;
         Direction f = ms.getValue(FACING);
         for (int idx = 0; idx < game.parts(); idx++) {
             BlockPos q = partPos(master, f, idx);
