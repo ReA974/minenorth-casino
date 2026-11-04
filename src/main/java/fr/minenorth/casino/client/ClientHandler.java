@@ -47,6 +47,10 @@ public final class ClientHandler {
         if (Minecraft.getInstance().screen instanceof PokerScreen s) s.state(p);
     }
 
+    public static void cockExtra(ModNetwork.CockExtraPacket p) {
+        if (Minecraft.getInstance().screen instanceof CockfightScreen s) s.extra(p);
+    }
+
     public static void cock(ModNetwork.CockStatePacket p) {
         if (Minecraft.getInstance().screen instanceof CockfightScreen s) s.state(p);
     }

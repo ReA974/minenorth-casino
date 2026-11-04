@@ -164,6 +164,22 @@ public final class CasinoConfig {
         public boolean police_en_service = true;
         /** Après une descente de police, plus aucune arène n'ouvre pendant ce temps. */
         public int fermeture_apres_descente_minutes = 60;
+
+        // --- animaux des joueurs (combats d'animaux apprivoisés : chien, chat, animaux Polly Pets…)
+        /** Qualités d'un animal la première fois qu'il entre dans l'arène (force, agilité, endurance). */
+        public int animal_qualites_depart = 3;
+        /** Plafond de chaque qualité (comme les coqs de la maison : 9). */
+        public int animal_qualite_max = 9;
+        /** Prix d'une séance d'entraînement, multiplié par le niveau actuel de la qualité travaillée (espèces). */
+        public double prix_entrainement_euros = 25;
+        /** Délai entre deux entraînements d'un même animal. */
+        public int entrainement_minutes = 30;
+        /** Repos d'un animal après un combat avant de pouvoir se réinscrire. */
+        public int repos_animal_minutes = 10;
+        /** Distance maximale entre le maître et son animal pour l'inscrire ou l'entraîner. */
+        public int distance_animal_blocs = 10;
+        /** Commission maximale réglable par l'organisateur depuis le menu (%). */
+        public double commission_max_pourcent = 30;
     }
 
     public static CasinoConfig get() { return current; }

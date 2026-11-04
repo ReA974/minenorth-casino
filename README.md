@@ -20,7 +20,7 @@ Les mouvements apparaissent dans l'historique du compte de l'entreprise (« Casi
 - `table_roulette` : grande table de 3 x 2 blocs (roue à gauche, tapis à droite), se pose et se casse d'un bloc. Roulette européenne (0-36), paris multiples : plein, douzaines, colonnes, rouge/noir,
   pair/impair, manque/passe. Clic gauche = poser le jeton, clic droit = retirer.
 - `table_poker` : table de **Texas Hold'em** de 3 x 2 blocs (voir plus bas).
-- `arene_coqs` : arène clandestine de **combats de coqs** de 3 x 2 blocs (voir plus bas).
+- `arene_coqs` : arène clandestine de **combats** (coqs de la maison ou animaux des joueurs) de **5 x 4 blocs** (voir plus bas).
 - `table_blackjack` : grande table de 3 x 2 blocs (demi-lune, plateau de jetons et sabot), se pose et se casse d'un bloc. 6 jeux, tirer / rester / doubler, blackjack payé 3 contre 2. Pas de split ni d'assurance.
   Un joueur qui se déconnecte en pleine main : le croupier joue et la main est réglée normalement.
 
@@ -64,6 +64,27 @@ Par défaut seuls les OP posent et cassent ces blocs (`pose_op_seulement`).
 - Gains d'un joueur parti avant la fin : remis en espèces à sa prochaine connexion. Arrêt du serveur ou arène démontée pendant les
   paris : mises rendues.
 
+## Arène : animaux des joueurs, entraînement, menu de l'organisateur (04/11)
+- **Arène agrandie : 5 x 4 blocs** (ring de sable, palissade, gradins en bottes de paille, caisse du bookmaker, guirlande d'ampoules ;
+  version fermée = gros tas de caisses bâché). Les combattants se font face à 3 blocs l'un de l'autre. Propriété de bloc à part
+  (`ArenaBlock.PART_A`, 0 à 19) : les autres tables gardent 0 à 5. **Les arènes déjà posées (3 x 2) sont à casser et reposer.**
+- **Combattre avec son animal** : onglet « Mon animal » de l'écran de l'arène. Le maître se tient près de l'arène avec son animal
+  apprivoisé (chien, chat, animal Polly Pets… à moins de `distance_animal_blocs`, pas un chien de police) et l'**inscrit** à la place d'un
+  coq de la maison (une place par côté, un animal par maître, avant le premier pari). Dans l'arène se bat un **double** de l'animal
+  (même apparence, sans IA, invulnérable, retiré à la fin) : le vrai animal ne risque rien. Une inscription vaut pour un combat ; après, l'animal
+  se repose `repos_animal_minutes`. Retrait possible tant qu'aucun pari n'est engagé.
+- **Entraînement** (même onglet) : +1 en force, agilité ou endurance (plafond `animal_qualite_max`, départ `animal_qualites_depart`), payé en
+  **espèces** (`prix_entrainement_euros` x niveau actuel), une séance toutes les `entrainement_minutes` par animal. Pas pendant une inscription.
+  Fiche par animal (qualités, victoires, défaites) dans la sauvegarde de l'arène (`minenorth_casino_coqs`).
+- **Menu de l'organisateur** (onglet « Organisation » : membres du `gang_organisateur` et staff OP) :
+  - **Arène ouverte / fermée** : fermée, l'emplacement actif reste bâché (personne d'autre ne peut l'ouvrir) ; pas pendant des paris ou un combat ;
+  - **Lancement automatique / à la main** : à la main, les paris restent ouverts jusqu'au bouton **« Lancer le combat maintenant »**
+    (le bouton marche aussi en automatique pour couper le compte à rebours) ;
+  - **Commission** de 0 à `commission_max_pourcent` (pas de 1 %, entre deux combats) ;
+  - **Bénéficiaire de la commission** : caisse du gang (trésor public sans gang), **maître de l'animal vainqueur**, moitié / moitié, ou
+    **un joueur désigné** (pseudo exact, connecté). Si le vainqueur est un coq de la maison, la part « maître » va à la caisse.
+- Réseau : **protocole 5** (mod à installer serveur ET clients).
+
 ## Jackpot progressif et gros gains
 - Une part de chaque mise des machines à sous (`part_des_mises_pourcent`) alimente un **jackpot commun** à toutes les machines,
   affiché sur l'écran. Trois symboles **les plus rares** (le dernier de la liste) remportent le jackpot en plus du gain normal ; il
@@ -86,7 +107,6 @@ Par défaut seuls les OP posent et cassent ces blocs (`pose_op_seulement`).
 - **Salon VIP** : tables de poker à grosses blinds réservées aux grades VIP, commission réduite pour les VIP.
 - **Tournois de poker** (sit & go) avec droit d'entrée et répartition des prix ; classement des meilleurs joueurs.
 - **Croupier PNJ** animé derrière les tables, et jetons posés en vrai sur le tapis (rendu de bloc).
-- **Paris entre joueurs sur les coqs avec élevage** : acheter, nourrir et entraîner son coq (stats qui montent), lien avec le mod Animaux.
 - **Combines de gang** : un gang peut « acheter » le combat (coq dopé, cotes faussées) au risque d'une enquête de police.
 - **Carte de fidélité casino** : points cumulés, cadeaux, accès VIP temporaire.
 
@@ -110,7 +130,9 @@ Par défaut seuls les OP posent et cassent ces blocs (`pose_op_seulement`).
 - `jackpot` : `actif`, `part_des_mises_pourcent` (1), `montant_depart_euros` (500), `annonce_gros_gain_euros`, `rayon_annonce_blocs`.
 - `combats_de_coqs` : mises min / max (espèces, par combat), `mises_rapides_euros`, `duree_paris_secondes`, `pause_secondes`,
   `commission_pourcent` (10), `gang_organisateur`, `deplacement_minutes`, `rayon_presence_blocs`, `chance_alerte_police`,
-  `police_en_service`, `fermeture_apres_descente_minutes`.
+  `police_en_service`, `fermeture_apres_descente_minutes` ; animaux : `animal_qualites_depart` (3), `animal_qualite_max` (9),
+  `prix_entrainement_euros` (25), `entrainement_minutes` (30), `repos_animal_minutes` (10), `distance_animal_blocs` (10),
+  `commission_max_pourcent` (30).
 Toutes ces sections s'ajoutent seules au fichier au démarrage.
 
 

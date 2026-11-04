@@ -6,6 +6,7 @@ import fr.minenorth.casino.network.ModNetwork.CockStatePacket;
 import fr.minenorth.casino.network.ModNetwork.OpenPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
@@ -16,8 +17,9 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * Arène clandestine : deux coqs, leurs qualités, les cotes du pari mutuel et le combat animé (bonds, plumes, coups critiques).
- * Le combat est entièrement décidé par le serveur ; l'écran rejoue chaque échange qu'il reçoit.
+ * Arène clandestine : deux combattants (coqs de la maison ou animaux de joueurs), leurs qualités, les cotes du pari mutuel et le combat animé.
+ * Onglets : Paris, Mon animal (inscription, entraînement), Organisation (organisateur : ouverture, lancement, commission, bénéficiaire).
+ * Tout est décidé et revérifié par le serveur ; l'écran rejoue chaque échange qu'il reçoit.
  */
 public class CockfightScreen extends CasinoScreen {
     private static final int RED_SIDE = 0xFFE0335A, BLUE_SIDE = 0xFF3D7BFF;
@@ -33,8 +35,14 @@ public class CockfightScreen extends CasinoScreen {
     /** Points de vie affichés (ils descendent en douceur). */
     private float shownA = -1, shownB = -1;
     private CasinoButton betRed, betBlue, raid, collect;
+    private ModNetwork.CockExtraPacket ex;
+    /** 0 paris, 1 mon animal, 2 organisation. */
+    private int tab;
+    private final List<CasinoButton> tabButtons = new ArrayList<>(), petButtons = new ArrayList<>(), orgButtons = new ArrayList<>();
+    private CasinoButton register, trainF, trainA, trainS, openBtn, manualBtn, startBtn, comMinus, comPlus, benefBtn, designate;
+    private EditBox playerBox;
 
-    public CockfightScreen(OpenPacket info) { super(info, "Combat de coqs", 380, 312); }
+    public CockfightScreen(OpenPacket info) { super(info, "Arène clandestine", 380, 330); }
 
     private int arenaCx() { return left + w / 2; }
 
@@ -50,6 +58,57 @@ public class CockfightScreen extends CasinoScreen {
                 () -> ModNetwork.CHANNEL.sendToServer(new ModNetwork.CockActionPacket(2, 0, 0))));
         collect = add(new CasinoButton(left + w - 150, top + 24, 138, 13, "Récupérer la caisse", 0xFFB08A20,
                 () -> ModNetwork.CHANNEL.sendToServer(new ModNetwork.CockActionPacket(1, 0, 0))));
+        tabButtons.clear(); petButtons.clear(); orgButtons.clear();
+        String[] names = {"Paris", "Mon animal", "Organisation"};
+        for (int i = 0; i < 3; i++) {
+            final int idx = i;
+            tabButtons.add(add(new CasinoButton(left + 12 + i * 72, top + 24, 68, 13, names[i], CasinoStyle.PINK, () -> { tab = idx; status = ""; })));
+        }
+        int py = top + 214;
+        register = pet(new CasinoButton(left + 12, top + h - 28, w - 24, 20, "Inscrire mon animal au prochain combat", 0xFF2E9E5A,
+                () -> action(ex != null && ex.mySide() >= 0 ? 4 : 3, 0)));
+        trainF = pet(new CasinoButton(left + w - 132, py, 120, 16, "Entraîner", CasinoStyle.PINK, () -> action(5, 0)));
+        trainA = pet(new CasinoButton(left + w - 132, py + 20, 120, 16, "Entraîner", CasinoStyle.PINK, () -> action(5, 1)));
+        trainS = pet(new CasinoButton(left + w - 132, py + 40, 120, 16, "Entraîner", CasinoStyle.PINK, () -> action(5, 2)));
+        int ox = left + 12, ow = (w - 30) / 2;
+        openBtn = org(new CasinoButton(ox, top + 156, ow, 18, "Arène", 0xFF2E9E5A, () -> setting(0, 0, "")));
+        manualBtn = org(new CasinoButton(ox + ow + 6, top + 156, ow, 18, "Lancement", 0xFF3D7BFF, () -> setting(1, 0, "")));
+        startBtn = org(new CasinoButton(ox, top + 180, w - 24, 18, "▶ Lancer le combat maintenant", CasinoStyle.ORANGE, () -> setting(5, 0, "")));
+        comMinus = org(new CasinoButton(ox + 150, top + 206, 22, 16, "−", 0xFF4A3C8C, () -> commission(-1)));
+        comPlus = org(new CasinoButton(ox + 220, top + 206, 22, 16, "+", 0xFF4A3C8C, () -> commission(1)));
+        benefBtn = org(new CasinoButton(ox + 150, top + 228, w - 174, 16, "Bénéficiaire", 0xFFB08A20,
+                () -> setting(2, ex == null ? 0 : (ex.beneficiary() + 1) % 4, "")));
+        playerBox = new EditBox(font, ox + 150, top + 252, 110, 14, Component.literal("Pseudo"));
+        playerBox.setMaxLength(16);
+        playerBox.setHint(Component.literal("Pseudo du joueur"));
+        addRenderableWidget(playerBox);
+        designate = org(new CasinoButton(ox + 266, top + 251, w - 290, 16, "Désigner", 0xFFB08A20, () -> setting(4, 0, playerBox.getValue())));
+    }
+
+    private CasinoButton pet(CasinoButton b) { petButtons.add(b); return add(b); }
+
+    private CasinoButton org(CasinoButton b) { orgButtons.add(b); return add(b); }
+
+    private void action(int action, int side) {
+        status = "";
+        ModNetwork.CHANNEL.sendToServer(new ModNetwork.CockActionPacket(action, side, 0));
+    }
+
+    private void setting(int kind, int value, String text) {
+        status = "";
+        ModNetwork.CHANNEL.sendToServer(new ModNetwork.CockSettingPacket(kind, value, text == null ? "" : text));
+    }
+
+    /** Commission : pas de 1 %, envoyée en dixièmes de %. */
+    private void commission(int delta) {
+        if (ex == null) return;
+        float v = Math.max(0, Math.min(ex.commissionMax(), Math.round(ex.commission()) + delta));
+        setting(3, Math.round(v * 10), "");
+    }
+
+    public void extra(ModNetwork.CockExtraPacket p) {
+        ex = p;
+        if (!p.organizer() && tab == 2) tab = 0;
     }
 
     private CasinoButton add(CasinoButton b) { addRenderableWidget(b); return b; }
@@ -106,8 +165,16 @@ public class CockfightScreen extends CasinoScreen {
     public void render(GuiGraphics g, int mx, int my, float pt) {
         boolean open = st != null && (st.phase() == 0 || st.phase() == 1);
         boolean cop = st != null && st.police();
-        betRed.visible = betBlue.visible = !cop;
-        raid.visible = cop;
+        boolean org = ex != null && ex.organizer();
+        tabButtons.get(2).visible = org;
+        for (int i = 0; i < 3; i++) tabButtons.get(i).selected(tab == i);
+        boolean betTab = tab == 0;
+        betRed.visible = betBlue.visible = !cop && betTab;
+        raid.visible = cop && betTab;
+        for (CasinoButton b : petButtons) b.visible = tab == 1 && ex != null && !ex.petName().isEmpty();
+        for (CasinoButton b : orgButtons) b.visible = tab == 2 && org;
+        playerBox.visible = tab == 2 && org;
+        if (ex != null) updateButtons(st != null && st.phase() == 0);
         betRed.enabled(open && (st.mineB() == 0));
         betBlue.enabled(open && (st.mineA() == 0));
         raid.enabled(st != null && st.nameA() != null);
@@ -120,6 +187,8 @@ public class CockfightScreen extends CasinoScreen {
             g.drawString(font, cash, left + w - 14 - font.width(cash), top + 14, CasinoStyle.GOLD, false);
         }
         drawArena(g, pt);
+        if (tab == 1) { drawPetPanel(g); return; }
+        if (tab == 2 && ex != null && ex.organizer()) { drawOrgPanel(g); return; }
         if (st == null || st.nameA().isEmpty()) {
             CasinoStyle.centered(g, st == null ? "…" : fit(st.message(), w - 30), arenaCx(), arenaCy() + 70, CasinoStyle.MUTED);
             return;
@@ -127,11 +196,11 @@ public class CockfightScreen extends CasinoScreen {
         drawSide(g, 0, left + 12, top + 152);
         drawSide(g, 1, left + w / 2 + 4, top + 152);
         // déroulé / message
-        int my2 = top + 200;
+        int my2 = top + 208;
         CasinoStyle.round(g, left + 12, my2, w - 24, 14, 7, 0x99000000);
         CasinoStyle.centered(g, fit(st.message(), w - 36), arenaCx(), my2 + 3, CasinoStyle.TEXT);
         // parieurs
-        int by = top + 218;
+        int by = top + 226;
         for (int i = 0; i < st.bets().size() && i < 4; i++) {
             String row = st.bets().get(i);
             int bar = row.lastIndexOf('|');
@@ -152,11 +221,73 @@ public class CockfightScreen extends CasinoScreen {
         }
     }
 
+    private void updateButtons(boolean idle) {
+        boolean mine = ex.mySide() >= 0;
+        register.setMessage(Component.literal(mine ? "Retirer mon animal du combat" : "Inscrire " + ex.petName() + " au prochain combat"));
+        register.enabled(idle && (mine || ex.restWait() == 0));
+        int[] v = {ex.petForce(), ex.petAgi(), ex.petSta()};
+        CasinoButton[] tb = {trainF, trainA, trainS};
+        for (int i = 0; i < 3; i++) {
+            boolean max = v[i] >= ex.statMax();
+            tb[i].setMessage(Component.literal(max ? "Au maximum" : "+1 · " + CasinoStyle.euros(ex.trainUnitCents() * Math.max(1, v[i]))));
+            tb[i].enabled(!max && ex.trainWait() == 0 && !mine);
+        }
+        openBtn.setMessage(Component.literal(ex.open() ? "Arène OUVERTE (fermer)" : "Arène FERMÉE (ouvrir)"));
+        manualBtn.setMessage(Component.literal(ex.manual() ? "Lancement : À LA MAIN" : "Lancement : AUTO"));
+        startBtn.enabled(ex.open() && st != null && (st.phase() == 0 || st.phase() == 1));
+        benefBtn.setMessage(Component.literal(fit(ex.beneficiaryLabel(), w - 190)));
+    }
+
+    private static String mmss(int sec) { return sec >= 60 ? (sec / 60) + " min" : sec + " s"; }
+
+    /** Onglet « Mon animal » : animal le plus proche, palmarès, qualités et entraînement. */
+    private void drawPetPanel(GuiGraphics g) {
+        int x = left + 12, y = top + 152, ww = w - 24;
+        CasinoStyle.roundGradient(g, x, y, ww, 150, 10, 0xFF2A1C4A, 0xFF1A1033);
+        if (ex == null || ex.petName().isEmpty()) {
+            CasinoStyle.centered(g, "Amenez votre animal apprivoisé tout près de vous", arenaCx(), y + 50, CasinoStyle.TEXT);
+            CasinoStyle.centered(g, "(chien, chat, animal Polly Pets…) pour l'inscrire ou l'entraîner.", arenaCx(), y + 64, CasinoStyle.MUTED);
+            drawStatus(g, top + h - 26);
+            return;
+        }
+        g.drawString(font, fit(ex.petName() + " · " + ex.petSpecies(), ww - 20), x + 10, y + 8, CasinoStyle.WHITE, false);
+        String rec = ex.petWins() + " victoire(s) · " + ex.petLosses() + " défaite(s)";
+        g.drawString(font, rec, x + 10, y + 20, CasinoStyle.GOLD, false);
+        String[] lab = {"Force", "Agilité", "Endurance"};
+        int[] v = {ex.petForce(), ex.petAgi(), ex.petSta()};
+        for (int i = 0; i < 3; i++) {
+            int ry = top + 214 + i * 20 + 4;
+            g.drawString(font, lab[i], x + 10, ry, CasinoStyle.TEXT, false);
+            for (int k = 0; k < ex.statMax(); k++) CasinoStyle.round(g, x + 72 + k * 9, ry, 7, 8, 3, k < v[i] ? CasinoStyle.PINK : 0x44FFFFFF);
+        }
+        String info = ex.mySide() >= 0 ? "Inscrit côté " + (ex.mySide() == 0 ? "ROUGE" : "BLEU") + " : un double se bat, votre animal ne risque rien."
+                : ex.restWait() > 0 ? "Au repos encore " + mmss(ex.restWait()) + " après son dernier combat."
+                : ex.trainWait() > 0 ? "Prochain entraînement dans " + mmss(ex.trainWait()) + "."
+                : "Entraînez-le avant de l'inscrire : chaque séance ajoute +1.";
+        g.drawString(font, fit(info, ww - 20), x + 10, y + 36, CasinoStyle.MUTED, false);
+        drawStatus(g, top + h - 52);
+    }
+
+    /** Onglet « Organisation » : ouverture, lancement, commission et qui la touche. */
+    private void drawOrgPanel(GuiGraphics g) {
+        int x = left + 12;
+        CasinoStyle.roundGradient(g, x, top + 150, w - 24, 124, 10, 0xFF2A1C4A, 0xFF1A1033);
+        g.drawString(font, "Commission", x + 10, top + 210, CasinoStyle.TEXT, false);
+        String pct = String.format(java.util.Locale.ROOT, "%.0f %%", ex.commission());
+        CasinoStyle.centered(g, pct, x + 186 + 11, top + 210, CasinoStyle.GOLD);
+        g.drawString(font, "des mises perdantes", x + 250, top + 210, CasinoStyle.MUTED, false);
+        g.drawString(font, "Elle va à", x + 10, top + 232, CasinoStyle.TEXT, false);
+        g.drawString(font, "Joueur désigné", x + 10, top + 255, CasinoStyle.TEXT, false);
+        CasinoStyle.centered(g, fit(ex.manual() ? "Les paris restent ouverts jusqu'à ce que vous lanciez le combat."
+                : "Le combat part à la fin du compte à rebours (ou tout de suite avec le bouton).", w - 30), arenaCx(), top + 280, CasinoStyle.MUTED);
+        drawStatus(g, top + h - 30);
+    }
+
     private static long parse(String s) { try { return Long.parseLong(s); } catch (NumberFormatException e) { return 0; } }
 
     /** Cote du pari mutuel pour un euro misé sur {@code side} (mise comprise) ; avant tout pari, la cote théorique. */
     private double odds(int side) {
-        double c = info.bjGain() / 100.0;
+        double c = (ex != null ? ex.commission() : info.bjGain()) / 100.0;
         long mine = side == 0 ? st.poolA() : st.poolB(), other = side == 0 ? st.poolB() : st.poolA();
         if (mine > 0) return 1 + other * (1 - c) / mine;
         double p = side == 0 ? st.pA() : 1 - st.pA();
@@ -167,8 +298,10 @@ public class CockfightScreen extends CasinoScreen {
         int ww = w / 2 - 16;
         int col = side == 0 ? RED_SIDE : BLUE_SIDE;
         boolean win = st.phase() == 3 && st.winner() == side;
-        if (win) CasinoStyle.round(g, x - 2, y - 2, ww + 4, 46, 9, CasinoStyle.GOLD);
-        CasinoStyle.roundGradient(g, x, y, ww, 42, 8, CasinoStyle.mix(col, 0xFF1A1033, 0.55f), 0xFF1A1033);
+        if (win) CasinoStyle.round(g, x - 2, y - 2, ww + 4, 56, 9, CasinoStyle.GOLD);
+        CasinoStyle.roundGradient(g, x, y, ww, 52, 8, CasinoStyle.mix(col, 0xFF1A1033, 0.55f), 0xFF1A1033);
+        String owner = ex == null ? "" : side == 0 ? ex.ownerA() : ex.ownerB();
+        g.drawString(font, fit(owner.isEmpty() ? "Coq de la maison" : "Animal de " + owner, ww - 10), x + 6, y + 40, owner.isEmpty() ? CasinoStyle.MUTED : CasinoStyle.CYAN, false);
         String name = side == 0 ? st.nameA() : st.nameB();
         g.drawString(font, fit(name, ww - 50), x + 6, y + 4, CasinoStyle.WHITE, false);
         String od = String.format(java.util.Locale.ROOT, "x%.2f", odds(side));
@@ -260,8 +393,25 @@ public class CockfightScreen extends CasinoScreen {
         g.pose().translate(baseX + ox, cy + 6 + oy, 0);
         if (dead) g.pose().mulPose(Axis.ZP.rotationDegrees(side == 0 ? -90 : 90));
         g.pose().scale(side == 0 ? 1 : -1, 1, 1);   // les deux coqs se font face
-        drawCock(g, dead ? 0xFF6E6A70 : color, hurt);
+        boolean animal = ex != null && !(side == 0 ? ex.ownerA() : ex.ownerB()).isEmpty();
+        if (animal) drawAnimal(g, dead ? 0xFF6E6A70 : color, hurt);
+        else drawCock(g, dead ? 0xFF6E6A70 : color, hurt);
         g.pose().popPose();
+    }
+
+    /** Animal à quatre pattes (chien, chat…) face à droite, pattes à l'origine. */
+    private static void drawAnimal(GuiGraphics g, int body, boolean hurt) {
+        int dark = CasinoStyle.darken(body, 0.6f);
+        CasinoStyle.round(g, -18, -20, 9, 4, 2, dark);                 // queue
+        for (int k : new int[]{-11, -6, 6, 11}) CasinoStyle.round(g, k - 1, -8, 3, 8, 1, dark);   // pattes
+        CasinoStyle.oval(g, 0, -13, 15, 7, body);                        // corps
+        CasinoStyle.round(g, 9, -24, 9, 9, 4, body);                     // tête
+        CasinoStyle.round(g, 10, -28, 3, 5, 1, dark);                    // oreilles
+        CasinoStyle.round(g, 15, -28, 3, 5, 1, dark);
+        CasinoStyle.round(g, 16, -19, 6, 4, 2, body);                    // museau
+        g.fill(20, -19, 22, -17, 0xFF111111);
+        g.fill(14, -22, 16, -20, 0xFF111111);                             // œil
+        if (hurt) CasinoStyle.oval(g, 0, -16, 17, 12, 0x88FF2020);
     }
 
     /** Coq dessiné face à droite, pieds à l'origine. */
@@ -294,7 +444,7 @@ public class CockfightScreen extends CasinoScreen {
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        if (st != null && !st.police() && chipClick(left + 48, top + h - 49, mx, my)) return true;
+        if (tab == 0 && st != null && !st.police() && chipClick(left + 48, top + h - 49, mx, my)) return true;
         return super.mouseClicked(mx, my, button);
     }
 }

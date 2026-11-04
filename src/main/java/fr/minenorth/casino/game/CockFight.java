@@ -26,9 +26,12 @@ public final class CockFight {
     /** Probabilité que le coq rouge (a) gagne. */
     public final double pA;
 
-    public CockFight(Random rng) {
-        a = random(rng, null);
-        b = random(rng, a.name());
+    public CockFight(Random rng) { this(rng, null, null); }
+
+    /** Combat entre deux combattants donnés ; null = coq de la maison tiré au hasard. */
+    public CockFight(Random rng, Cock fa, Cock fb) {
+        a = fa != null ? fa : random(rng, fb == null ? null : fb.name());
+        b = fb != null ? fb : random(rng, a.name());
         Random sim = new Random(rng.nextLong());
         int wins = 0, n = 600;
         for (int i = 0; i < n; i++) if (winner(simulate(sim)) == 0) wins++;

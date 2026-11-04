@@ -29,7 +29,7 @@ import java.util.function.Supplier;
 public final class ModNetwork {
     private ModNetwork() {}
 
-    private static final String PROTOCOL = "4";
+    private static final String PROTOCOL = "5";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(MineNorthCasino.MOD_ID, "network"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
     private static int id = 0;
@@ -53,6 +53,8 @@ public final class ModNetwork {
         CHANNEL.registerMessage(id++, PokerStatePacket.class, PokerStatePacket::encode, PokerStatePacket::decode, PokerStatePacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(id++, CockActionPacket.class, CockActionPacket::encode, CockActionPacket::decode, CockActionPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(id++, CockStatePacket.class, CockStatePacket::encode, CockStatePacket::decode, CockStatePacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(id++, CockExtraPacket.class, CockExtraPacket::encode, CockExtraPacket::decode, CockExtraPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
+        CHANNEL.registerMessage(id++, CockSettingPacket.class, CockSettingPacket::encode, CockSettingPacket::decode, CockSettingPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(id++, JackpotPacket.class, JackpotPacket::encode, JackpotPacket::decode, JackpotPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
     }
 
@@ -253,7 +255,47 @@ public final class ModNetwork {
         static void handle(CockStatePacket p, Supplier<NetworkEvent.Context> c) { toClient(c, () -> ClientHandler.cock(p)); }
     }
 
+    /**
+     * Complément de l'état de l'arène : maîtres des animaux inscrits (« maître · espèce », vide = coq de la maison), animal du joueur le plus
+     * proche et son entraînement, réglages de l'organisateur (organizer = droit de les changer).
+     */
+    public record CockExtraPacket(String ownerA, String ownerB, String petName, String petSpecies, int petForce, int petAgi, int petSta,
+                                  int petWins, int petLosses, long trainUnitCents, int statMax, int trainWait, int restWait, int mySide,
+                                  boolean organizer, boolean open, boolean manual, int beneficiary, String beneficiaryLabel, float commission,
+                                  float commissionMax) {
+        static void encode(CockExtraPacket p, FriendlyByteBuf b) {
+            b.writeUtf(p.ownerA, 128); b.writeUtf(p.ownerB, 128); b.writeUtf(p.petName, 64); b.writeUtf(p.petSpecies, 64);
+            b.writeVarInt(p.petForce); b.writeVarInt(p.petAgi); b.writeVarInt(p.petSta); b.writeVarInt(p.petWins); b.writeVarLong(p.trainUnitCents);
+            b.writeVarInt(p.statMax); b.writeVarInt(p.trainWait); b.writeVarInt(p.restWait); b.writeVarInt(p.mySide + 1); b.writeVarInt(p.petLosses);
+            b.writeBoolean(p.organizer); b.writeBoolean(p.open); b.writeBoolean(p.manual); b.writeVarInt(p.beneficiary); b.writeUtf(p.beneficiaryLabel, 96);
+            b.writeFloat(p.commission); b.writeFloat(p.commissionMax);
+        }
+
+        static CockExtraPacket decode(FriendlyByteBuf b) {
+            String oa = b.readUtf(128), ob = b.readUtf(128), pn = b.readUtf(64), ps = b.readUtf(64);
+            int f = b.readVarInt(), a = b.readVarInt(), s = b.readVarInt(), w = b.readVarInt();
+            long unit = b.readVarLong();
+            int max = b.readVarInt(), tw = b.readVarInt(), rw = b.readVarInt(), side = b.readVarInt() - 1, l = b.readVarInt();
+            boolean org = b.readBoolean(), open = b.readBoolean(), manual = b.readBoolean();
+            int ben = b.readVarInt();
+            String bl = b.readUtf(96);
+            return new CockExtraPacket(oa, ob, pn, ps, f, a, s, w, l, unit, max, tw, rw, side, org, open, manual, ben, bl, b.readFloat(), b.readFloat());
+        }
+
+        static void handle(CockExtraPacket p, Supplier<NetworkEvent.Context> c) { toClient(c, () -> ClientHandler.cockExtra(p)); }
+    }
+
     // ------------------------------------------------------------------ client → serveur
+
+    /** Menu de l'organisateur de l'arène : réglage {@code kind} (CockfightService.SET_*), valeur ou texte (pseudo du bénéficiaire). */
+    public record CockSettingPacket(int kind, int value, String text) {
+        static void encode(CockSettingPacket p, FriendlyByteBuf b) { b.writeVarInt(p.kind); b.writeVarInt(p.value); b.writeUtf(p.text, 32); }
+        static CockSettingPacket decode(FriendlyByteBuf b) { return new CockSettingPacket(b.readVarInt(), b.readVarInt(), b.readUtf(32)); }
+        static void handle(CockSettingPacket p, Supplier<NetworkEvent.Context> c) {
+            toServer(c, sp -> fr.minenorth.casino.CockfightService.setting(sp, p.kind, p.value, p.text));
+        }
+    }
+
 
     /** Poker : 0 couché, 1 check, 2 suivre, 3 relancer à {@code amount}, 4 tapis, 10 s'asseoir au siège {@code seat} avec {@code amount}, 11 se lever. */
     public record PokerActionPacket(int action, int seat, long amount) {
@@ -264,7 +306,10 @@ public final class ModNetwork {
         }
     }
 
-    /** Combats de coqs : 0 parier {@code cents} sur le coq {@code side} (0 rouge, 1 bleu), 1 récupérer la caisse, 2 descente de police. */
+    /**
+     * Combats : 0 parier {@code cents} sur le côté {@code side} (0 rouge, 1 bleu), 1 récupérer la caisse, 2 descente de police,
+     * 3 inscrire son animal, 4 le retirer, 5 l'entraîner ({@code side} = qualité : 0 force, 1 agilité, 2 endurance).
+     */
     public record CockActionPacket(int action, int side, long cents) {
         static void encode(CockActionPacket p, FriendlyByteBuf b) { b.writeVarInt(p.action); b.writeVarInt(p.side); b.writeVarLong(p.cents); }
         static CockActionPacket decode(FriendlyByteBuf b) { return new CockActionPacket(b.readVarInt(), b.readVarInt(), b.readVarLong()); }

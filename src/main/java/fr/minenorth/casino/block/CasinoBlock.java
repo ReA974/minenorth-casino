@@ -29,17 +29,17 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Machine à sous, table de roulette, table de blackjack ou caisse : aucune donnée sur le bloc, tout vient de la config et du serveur.
- * La machine à sous (1x1x2) et la roulette (3x2) sont composées de plusieurs blocs identiques ; {@link #PART} numérote les morceaux,
+ * La machine à sous (1x1x2), la roulette (3x2) et l'arène (5x4) sont composées de plusieurs blocs identiques ; {@link #part()} numérote les morceaux,
  * le morceau 0 (celui posé par le joueur) est le seul à rendre l'objet.
  */
 public class CasinoBlock extends Block {
     public enum Game {
-        SLOT(1, 1, 2), ROULETTE(3, 2, 1), BLACKJACK(3, 2, 1), CASHIER(1, 1, 1), POKER(3, 2, 1), COCKFIGHT(3, 2, 1);
+        SLOT(1, 1, 2), ROULETTE(3, 2, 1), BLACKJACK(3, 2, 1), CASHIER(1, 1, 1), POKER(3, 2, 1), COCKFIGHT(5, 4, 1);
 
         /** Largeur (vers la droite du joueur), profondeur (vers l'arrière) et hauteur, en blocs. */
         final int w, d, h;
         Game(int w, int d, int h) { this.w = w; this.d = d; this.h = h; }
-        int parts() { return w * d * h; }
+        public int parts() { return w * d * h; }
     }
 
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
@@ -59,12 +59,15 @@ public class CasinoBlock extends Block {
                 .noOcclusion().pushReaction(PushReaction.BLOCK)
                 // Les loupiotes de la machine à sous éclairent un peu la salle (le morceau du haut seulement).
                 .lightLevel(s -> game == Game.SLOT && s.getValue(PART) == 1 ? 8 : game == Game.CASHIER ? 6
-                        : game == Game.COCKFIGHT && s.getValue(PART) == 0 && s.getValue(ArenaBlock.OPEN) ? 11 : 0));
+                        : game == Game.COCKFIGHT && s.getValue(ArenaBlock.PART_A) == 0 && s.getValue(ArenaBlock.OPEN) ? 11 : 0));
         this.game = game;
-        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(PART, 0));
+        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(part(), 0));
     }
 
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> b) { b.add(FACING, PART); }
+
+    /** Propriété qui numérote les morceaux (l'arène, plus grande, a la sienne : {@link ArenaBlock#PART_A}). */
+    public IntegerProperty part() { return PART; }
 
     @Override public VoxelShape getShape(BlockState s, BlockGetter l, BlockPos p, CollisionContext c) {
         return game == Game.COCKFIGHT ? PIT : isTable() ? TABLE : FULL;
@@ -89,7 +92,7 @@ public class CasinoBlock extends Block {
 
     /** Position du morceau principal (0) de la machine ou table dont {@code pos} fait partie. */
     public BlockPos masterOf(BlockPos pos, BlockState st) {
-        BlockPos off = partPos(BlockPos.ZERO, st.getValue(FACING), st.getValue(PART));
+        BlockPos off = partPos(BlockPos.ZERO, st.getValue(FACING), st.getValue(part()));
         return pos.subtract(off);
     }
 
@@ -104,7 +107,7 @@ public class CasinoBlock extends Block {
             BlockPos q = partPos(ctx.getClickedPos(), f, idx);
             if (l.isOutsideBuildHeight(q) || (idx > 0 && !l.getBlockState(q).canBeReplaced())) return null;
         }
-        return defaultBlockState().setValue(FACING, f).setValue(PART, 0);
+        return defaultBlockState().setValue(FACING, f).setValue(part(), 0);
     }
 
     @Override
@@ -112,14 +115,14 @@ public class CasinoBlock extends Block {
         super.setPlacedBy(level, pos, state, by, stack);
         if (level.isClientSide) return;
         for (int idx = 1; idx < game.parts(); idx++) {
-            level.setBlock(partPos(pos, state.getValue(FACING), idx), state.setValue(PART, idx), 3);
+            level.setBlock(partPos(pos, state.getValue(FACING), idx), state.setValue(part(), idx), 3);
         }
     }
 
     /** Casser un morceau autre que le principal : l'objet tombe quand même (la table de loot ne le donne que pour le morceau 0). */
     @Override
     public void playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
-        if (!level.isClientSide && !player.isCreative() && state.getValue(PART) != 0) {
+        if (!level.isClientSide && !player.isCreative() && state.getValue(part()) != 0) {
             BlockPos master = masterOf(pos, state);
             BlockState ms = level.getBlockState(master);
             if (ms.is(this)) dropResources(ms, level, master, null, player, player.getMainHandItem());
@@ -137,7 +140,7 @@ public class CasinoBlock extends Block {
                 BlockPos q = partPos(master, f, idx);
                 if (q.equals(pos)) continue;
                 BlockState o = level.getBlockState(q);
-                if (o.is(this) && o.getValue(FACING) == f && o.getValue(PART) == idx) level.setBlock(q, Blocks.AIR.defaultBlockState(), 35);
+                if (o.is(this) && o.getValue(FACING) == f && o.getValue(part()) == idx) level.setBlock(q, Blocks.AIR.defaultBlockState(), 35);
             }
         }
         super.onRemove(state, level, pos, newState, moved);

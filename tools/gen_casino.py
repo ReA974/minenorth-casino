@@ -10,6 +10,8 @@ Reperes :
    du joueur), Y (hauteur). Le morceau (i, j) du bloc couvre TX 16i..16i+16, TZ 16j..16j+16 ; son numero est j*3 + i
    (CasinoBlock.partPos : i vers la droite du joueur, j vers l'arriere). Dans le modele du morceau, x local = 16 - (TX - 16i).
  - modele d'objet d'une table entiere : x = 32 - TX, z = TZ - 8.
+ - arene de combats : 5 x 4 blocs (TX 0..80, TZ 0..64), morceau (i, j) numero j*5 + i ; modele d'objet reduit de moitie
+   (un modele d'objet doit rester entre -16 et 32).
 """
 import json
 import math
@@ -267,13 +269,13 @@ def felt_uv(txa, tza, txb, tzb, w=48.0, d=32.0):
     return [txa / w * 16, (d - tza) / d * 16, txb / w * 16, (d - tzb) / d * 16]
 
 
-def split(boxes, felt_tex="#felt"):
-    """Decoupe des boites du repere table en 6 modeles de morceaux. Les faces sur les plans de coupe sont retirees."""
-    parts = {i: [] for i in range(6)}
+def split(boxes, felt_tex="#felt", cols=3, rows=2):
+    """Decoupe des boites du repere table en cols x rows modeles de morceaux. Les faces sur les plans de coupe sont retirees."""
+    parts = {i: [] for i in range(cols * rows)}
     for bx in boxes:
         x0, y0, z0, x1, y1, z1 = bx.b
-        for i in range(3):
-            for j in range(2):
+        for i in range(cols):
+            for j in range(rows):
                 cx0, cx1 = max(x0, 16 * i), min(x1, 16 * i + 16)
                 cz0, cz1 = max(z0, 16 * j), min(z1, 16 * j + 16)
                 if cx1 - cx0 <= 1e-6 or cz1 - cz0 <= 1e-6:
@@ -293,16 +295,22 @@ def split(boxes, felt_tex="#felt"):
                     else:
                         el["faces"][TO_LOCAL[n]] = face("#atlas", uv(c), n in bx.glow)
                 if el["faces"]:
-                    parts[j * 3 + i].append(el)
+                    parts[j * cols + i].append(el)
     return parts
 
 
-def whole(boxes, felt_tex="#felt"):
-    """Toute la table dans un seul modele (objet) : x = 32 - TX, z = TZ - 8."""
+def whole(boxes, felt_tex="#felt", width=48, depth=32, k=1.0):
+    """Toute la table dans un seul modele (objet), centree sur le bloc, reduite d'un facteur k : x = 8 + (width/2 - TX) * k."""
     out = []
     for bx in boxes:
         x0, y0, z0, x1, y1, z1 = bx.b
-        el = {"from": [round(32 - x1, 4), y0, round(z0 - 8, 4)], "to": [round(32 - x0, 4), y1, round(z1 - 8, 4)], "faces": {}}
+        if k == 1.0:   # tables de 3 x 2 : formule d'origine (memes nombres ecrits)
+            el = {"from": [round(width // 2 + 8 - x1, 4), y0, round(z0 - (depth // 2 - 8), 4)],
+                  "to": [round(width // 2 + 8 - x0, 4), y1, round(z1 - (depth // 2 - 8), 4)], "faces": {}}
+        else:
+            fx = lambda tx: round(8 + (width / 2 - tx) * k, 4)
+            fz = lambda tz: round(8 + (tz - depth / 2) * k, 4)
+            el = {"from": [fx(x1), round(y0 * k, 4), fz(z0)], "to": [fx(x0), round(y1 * k, 4), fz(z1)], "faces": {}}
         for n, c in bx.faces.items():
             if c == "felt":
                 if n in ("up", "down"):
@@ -387,12 +395,12 @@ TABLE_DISPLAY = {
 }
 
 
-def multipart_state(name, models_by_part, extra_prop=None):
+def multipart_state(name, models_by_part, extra_prop=None, parts=6):
     """Etat de bloc : facing x part (x open si extra_prop = ('open', {True: prefixe, False: prefixe}))."""
     rot = {"north": 0, "east": 90, "south": 180, "west": 270}
     v = {}
     for fac, y in rot.items():
-        for p in range(6):
+        for p in range(parts):
             if extra_prop:
                 for val, prefix in extra_prop[1].items():
                     v["facing=%s,%s=%s,part=%d" % (fac, extra_prop[0], "true" if val else "false", p)] = {
@@ -607,71 +615,82 @@ def upgrade_table(kind):
 
 
 # ---------------------------------------------------------------- arene de combats de coqs (ouverte / fermee)
+ARENA_W, ARENA_D = 80, 64   # 5 x 4 blocs
+
+
 def arena_open_boxes():
     B = []
-    cx, cz = 24, 16
-    B.append(tb(0, 0, 0, 48, 0.5, 32, "sand_dk", skip=("down",)))
-    # palissade en planches usees, chapeau plus sombre, poteaux
-    B += ring(cx, cz, 22, 14.5, 19, 11.5, 0.5, 7.5, "plank", n=3.0)
-    B += ring(cx, cz, 22.4, 14.9, 18.8, 11.3, 7.5, 8.3, "plank_dk", n=3.0)
-    for (x, z) in ((3.5, 14.5), (44, 14.5), (12, 3.2), (36, 3.2), (12, 26.6), (36, 26.6), (24, 1.8), (24, 28.4)):
-        B.append(tb(x, 0.5, z, x + 1.2, 9, z + 1.2, "plank_dk"))
-    # sable du ring, taches, cercle trace au sol
-    B += stadium(cx, cz, 19, 11.5, 0.5, 1.2, "sand", n=3.0)
-    for (x, z, w, d) in ((18, 12, 3, 2), (28, 18, 2.5, 3), (22, 20, 1.5, 1.5), (31, 11, 2, 1.2)):
+    cx, cz = 40, 32
+    B.append(tb(0, 0, 0, ARENA_W, 0.5, ARENA_D, "sand_dk", skip=("down",)))
+    # palissade en planches usees, chapeau plus sombre, poteaux tout autour
+    B += ring(cx, cz, 37, 29, 34, 26, 0.5, 8.5, "plank", n=3.0)
+    B += ring(cx, cz, 37.4, 29.4, 33.8, 25.8, 8.5, 9.3, "plank_dk", n=3.0)
+    for (x, z) in ((3.4, 31.4), (75.4, 31.4), (12, 5.6), (28, 3.4), (51, 3.4), (67, 5.6), (12, 57.2), (28, 59.4), (51, 59.4), (67, 57.2)):
+        B.append(tb(x, 0.5, z, x + 1.4, 10.5, z + 1.4, "plank_dk"))
+    # sable du ring, taches, cercle trace au sol et ligne de depart des deux combattants
+    B += stadium(cx, cz, 34, 26, 0.5, 1.2, "sand", n=3.0)
+    for (x, z, w, d) in ((30, 22, 4, 3), (48, 38, 3, 4), (36, 42, 2, 2), (55, 24, 3, 1.6), (22, 34, 2.5, 2.5)):
         B.append(tb(x, 1.2, z, x + w, 1.26, z + d, "sand_dk", skip=("down",)))
-    B += ring(cx, cz, 8, 5, 7.4, 4.4, 1.2, 1.28, "sand_dk", step=1.0, n=2.0)
-    # bottes de paille aux angles, caisse du bookmaker avec la cagnotte, billets poses sur la palissade
-    B.append(tb(0.2, 0.5, 0.2, 5.8, 4, 4.2, "straw"))
-    B.append(tb(0.2, 4, 0.6, 5.8, 4.3, 3.8, "straw_dk"))
-    B.append(tb(42.4, 0.5, 27.6, 47.8, 4, 31.8, "straw"))
-    B.append(tb(43, 4, 28, 47.2, 7.4, 31.4, "straw"))
-    B.append(tb(42, 0.5, 0.2, 47.6, 5.5, 4.6, "crate"))
-    B.append(tb(42.3, 5.5, 0.5, 47.3, 5.7, 4.3, "crate_dk"))
-    B.append(tb(43.5, 5.7, 1.2, 46.2, 7, 3.6, "iron"))
-    B.append(tb(43.7, 7, 1.4, 46, 7.2, 3.4, "money"))
-    for (x, z) in ((19.5, 1.5), (27.5, 1.2), (22.8, 30.2)):
-        B.append(tb(x, 8.3, z, x + 2.4, 8.45, z + 1.2, "money", skip=("down",)))
-    # poteau de lanterne au fond a gauche, lanterne allumee, guirlande d'ampoules tendue au-dessus du ring
-    B.append(tb(0.6, 0.5, 28.6, 1.8, 19, 29.8, "plank_dk"))
-    B.append(tb(1.8, 17.6, 28.8, 6.5, 18.4, 29.6, "plank_dk"))
-    B.append(tb(5, 13.8, 28.4, 7.4, 17.6, 30, "iron", skip=("front", "back", "left", "right")))
-    B.append(tb(5.3, 14.2, 28.7, 7.1, 17.2, 29.7, "lamp", glow=True))
-    B.append(tb(46.2, 0.5, 28.6, 47.4, 19, 29.8, "plank_dk"))
-    B.append(tb(7, 17.8, 29.1, 46.2, 18, 29.3, "rope"))
-    for k in range(7):
-        x = 10 + k * 5.2
-        B.append(tb(x, 17.0, 28.9, x + 0.8, 17.8, 29.5, "lamp", glow=True))
+    B += ring(cx, cz, 13, 9, 12.2, 8.2, 1.2, 1.28, "sand_dk", step=1.0, n=2.0)
+    B.append(tb(23, 1.2, 30.5, 25, 1.3, 33.5, "white", skip=("down",)))
+    B.append(tb(55, 1.2, 30.5, 57, 1.3, 33.5, "white", skip=("down",)))
+    # gradins de spectateurs (bottes de paille) devant, et sur les cotes
+    for x in (8, 20, 52, 64):
+        B.append(tb(x, 0.5, 0.4, x + 8, 4, 4.4, "straw"))
+        B.append(tb(x + 0.3, 4, 0.8, x + 7.7, 4.3, 4, "straw_dk"))
+    B.append(tb(0.3, 0.5, 14, 4.3, 4, 24, "straw"))
+    B.append(tb(75.7, 0.5, 40, 79.7, 4, 50, "straw"))
+    B.append(tb(76, 4, 41, 79.4, 7.4, 49, "straw"))
+    # caisse du bookmaker avec la cagnotte, billets poses sur la palissade
+    B.append(tb(72, 0.5, 0.3, 79.6, 6, 6.3, "crate"))
+    B.append(tb(72.3, 6, 0.6, 79.3, 6.2, 6, "crate_dk"))
+    B.append(tb(74, 6.2, 1.5, 77.6, 7.6, 4.8, "iron"))
+    B.append(tb(74.2, 7.6, 1.7, 77.4, 7.8, 4.6, "money"))
+    for (x, z) in ((31, 3.3), (46, 3.1), (38, 60.3), (6.5, 30)):
+        B.append(tb(x, 9.3, z, x + 2.6, 9.45, z + 1.3, "money", skip=("down",)))
+    # deux poteaux de lanternes au fond, lanternes allumees, guirlande d'ampoules tendue au-dessus du ring
+    for (x, lx) in ((0.8, 2.2), (77.8, 72.6)):
+        B.append(tb(x, 0.5, 60.6, x + 1.4, 22, 62, "plank_dk"))
+    B.append(tb(2.2, 20.4, 60.8, 8, 21.2, 61.8, "plank_dk"))
+    B.append(tb(72, 20.4, 60.8, 77.8, 21.2, 61.8, "plank_dk"))
+    for lx in (5.6, 72.4):
+        B.append(tb(lx, 16.6, 60.4, lx + 2.6, 20.4, 62.2, "iron", skip=("front", "back", "left", "right")))
+        B.append(tb(lx + 0.3, 17, 60.7, lx + 2.3, 20, 61.9, "lamp", glow=True))
+    B.append(tb(8, 20.6, 61.1, 72, 20.8, 61.3, "rope"))
+    for k in range(12):
+        x = 11 + k * 5.2
+        B.append(tb(x, 19.8, 60.9, x + 0.8, 20.6, 61.5, "lamp", glow=True))
     return B
 
 
 def arena_closed_boxes():
     B = []
-    B.append(tb(0, 0, 0, 48, 0.5, 32, "sand_dk", skip=("down",)))
-    # tas de caisses sous une bache, cordes, quelques caisses autour : rien qui ressemble a une arene
-    B.append(tb(8, 0.5, 6, 40, 8.5, 26, "tarp", skip=("down",)))
-    B.append(tb(10, 8.5, 8, 30, 11, 22, "tarp_dk", skip=("down",)))
-    B.append(tb(7.6, 0.5, 5.6, 40.4, 1.2, 26.4, "tarp_dk", skip=("down", "up")))
-    for z in (9.5, 16, 22.5):
-        B.append(tb(7.8, 0.5, z, 40.2, 8.7, z + 0.4, "rope", skip=("down",)))
-    for (x, y, z, s) in ((1, 0.5, 2, 6), (1.5, 6.5, 2.5, 5), (41, 0.5, 24, 6.5), (42, 0.5, 2, 5)):
+    B.append(tb(0, 0, 0, ARENA_W, 0.5, ARENA_D, "sand_dk", skip=("down",)))
+    # gros tas de caisses sous une bache, cordes, caisses et bidons autour : rien qui ressemble a une arene
+    B.append(tb(12, 0.5, 12, 66, 10, 52, "tarp", skip=("down",)))
+    B.append(tb(16, 10, 16, 50, 13, 44, "tarp_dk", skip=("down",)))
+    B.append(tb(11.6, 0.5, 11.6, 66.4, 1.2, 52.4, "tarp_dk", skip=("down", "up")))
+    for z in (20, 32, 44):
+        B.append(tb(11.8, 0.5, z, 66.2, 10.2, z + 0.4, "rope", skip=("down",)))
+    for (x, y, z, s) in ((1, 0.5, 2, 7), (1.5, 7.5, 2.5, 6), (70, 0.5, 54, 8), (71, 0.5, 3, 6), (2, 0.5, 52, 6), (70, 0.5, 30, 6)):
         B.append(tb(x, y, z, x + s, y + s, z + s, "crate"))
         B.append(tb(x + 0.4, y + s, z + 0.4, x + s - 0.4, y + s + 0.2, z + s - 0.4, "crate_dk", skip=("down",)))
-    B.append(tb(43, 0.5, 9, 46.5, 7, 12.5, "iron"))        # vieux bidon
-    B.append(tb(43.2, 7, 9.2, 46.3, 7.4, 12.3, "rust" if "rust" in CELLS else "crate_dk"))
-    B.append(tb(2, 0.5, 26, 7.5, 4, 30.5, "straw"))
+    B.append(tb(72, 0.5, 14, 76, 8, 18, "iron"))        # vieux bidons
+    B.append(tb(72.2, 8, 14.2, 75.8, 8.4, 17.8, "rust" if "rust" in CELLS else "crate_dk"))
+    B.append(tb(66, 0.5, 18, 69.5, 7, 21.5, "iron"))
+    B.append(tb(4, 0.5, 26, 10, 4, 36, "straw"))
     return B
 
 
 def arena():
     t = {"atlas": NS + "casino_atlas", "particle": NS + "casino_atlas"}
     op, cl = arena_open_boxes(), arena_closed_boxes()
-    for p, els in split(op).items():
+    for p, els in split(op, cols=5, rows=4).items():
         write_model("arene_coqs_p%d" % p, t, els)
-    for p, els in split(cl).items():
+    for p, els in split(cl, cols=5, rows=4).items():
         write_model("arene_coqs_fermee_p%d" % p, t, els)
-    write_model("arene_coqs", t, whole(op), folder=ITEMS, extra={"display": TABLE_DISPLAY})
-    multipart_state("arene_coqs", None, ("open", {True: "arene_coqs", False: "arene_coqs_fermee"}))
+    write_model("arene_coqs", t, whole(op, width=ARENA_W, depth=ARENA_D, k=0.5), folder=ITEMS, extra={"display": TABLE_DISPLAY})
+    multipart_state("arene_coqs", None, ("open", {True: "arene_coqs", False: "arene_coqs_fermee"}), parts=20)
     loot("arene_coqs")
 
 
@@ -711,12 +730,12 @@ def tex_map():
     return m
 
 
-def merged(prefix, rows=2):
+def merged(prefix, rows=2, cols=3):
     """Modele unique d'une table posee (morceaux decales comme dans le monde, face au nord)."""
     els, textures = [], {}
-    for p in range(6):
+    for p in range(cols * rows):
         m = json.load(open(os.path.join(MODELS, "%s_p%d.json" % (prefix, p)), encoding="utf-8"))
-        i, j = p % 3, p // 3
+        i, j = p % cols, p // cols
         tag = "p%d_" % p
         for k, v in m["textures"].items():
             textures[tag + k] = v
@@ -752,10 +771,11 @@ def previews():
         rendu_modele.render(tmp, tm, yaw, pitch, out, size=size, scale=scale, center=center, bg=(28, 18, 52, 255), shade=True)
         shots.append(out)
 
-    for prefix, name in (("table_poker", "apercu-table-poker.png"), ("arene_coqs", "apercu-arene-coqs.png"),
-                         ("arene_coqs_fermee", "apercu-arene-fermee.png"), ("table_blackjack", "apercu-table-blackjack.png"),
+    for prefix, name in (("table_poker", "apercu-table-poker.png"), ("table_blackjack", "apercu-table-blackjack.png"),
                          ("table_roulette", "apercu-table-roulette.png")):
         shot(merged(prefix), name, 200, 32, (-8, 8, 16), 9.0)
+    for prefix, name in (("arene_coqs", "apercu-arene-coqs.png"), ("arene_coqs_fermee", "apercu-arene-fermee.png")):
+        shot(merged(prefix, rows=4, cols=5), name, 200, 32, (-24, 8, 32), 5.6)
     disp = json.load(open(os.path.join(MODELS, "caisse_casino.json"), encoding="utf-8"))
     shot(disp, "apercu-distributeur-jetons.png", 205, 18, (8, 8, 8), 26.0)
     chips_model = {"textures": {}, "elements": []}
